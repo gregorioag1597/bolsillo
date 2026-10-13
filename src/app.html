@@ -9,6 +9,7 @@
   --accent:#0e6a5b; --accent-ink:#ffffff; --accent-soft:#d9eee8;
   --gasto:#b2432c; --ingreso:#1d7a3f; --warn:#8a5a00; --warn-bg:#fbf0d9;
   --c0:#0e6a5b; --c1:#c27812; --c2:#3a5db6; --c3:#a33f78; --c4:#5a881c; --c5:#7650c4; --c6:#c4512f; --c7:#2a87a1;
+  --v-ing:#2f6fd0; --v-gas:#c8691a; --grid:#e3e9e6;
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body:"Figtree", "Segoe UI", system-ui, sans-serif;
   --r:14px;
@@ -18,6 +19,7 @@
   --accent:#52c3a9; --accent-ink:#04221b; --accent-soft:#16352e;
   --gasto:#f08c71; --ingreso:#6fd291; --warn:#f0c46a; --warn-bg:#2e2510;
   --c0:#52c3a9; --c1:#f0a640; --c2:#7f9cf0; --c3:#e27cb6; --c4:#9cce5a; --c5:#ad8cf2; --c6:#f08c71; --c7:#5cc4df;
+  --v-ing:#5585dc; --v-gas:#c9772f; --grid:#26312f;
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
@@ -25,6 +27,7 @@
   --accent:#52c3a9; --accent-ink:#04221b; --accent-soft:#16352e;
   --gasto:#f08c71; --ingreso:#6fd291; --warn:#f0c46a; --warn-bg:#2e2510;
   --c0:#52c3a9; --c1:#f0a640; --c2:#7f9cf0; --c3:#e27cb6; --c4:#9cce5a; --c5:#ad8cf2; --c6:#f08c71; --c7:#5cc4df;
+  --v-ing:#5585dc; --v-gas:#c9772f; --grid:#26312f;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -78,6 +81,25 @@ button{cursor:pointer}
 .btn.danger{color:var(--gasto)}
 .btn.mic{display:grid;place-items:center;padding:0 12px;color:var(--accent)}
 .btn.mic.on{background:var(--gasto);border-color:var(--gasto);color:#fff}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+pre.code{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;overflow-x:auto;max-height:260px;margin:0}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.chart{position:relative}
+.chart svg{display:block;max-width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--body)}
+.chart text.sel{fill:var(--ink);font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.12);white-space:nowrap;z-index:2}
+.tip b{display:block;margin-bottom:2px}
+.tip .r{display:flex;justify-content:space-between;gap:14px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.tile b{display:block;font-size:17px;font-family:var(--display);margin-top:2px}
+.tile small{color:var(--muted);font-size:12px}
+.delta{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+@media (max-width:420px){.tile{padding:8px}.tile b{font-size:14px}.tile small{font-size:11px}}
 .btn.small{padding:6px 10px;font-size:13px}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
 
@@ -201,7 +223,7 @@ td.d{max-width:200px;overflow:hidden;text-overflow:ellipsis}
 
   <nav class="tabs" role="tablist">
     <button type="button" role="tab" data-tab="movs" aria-selected="true">Movimientos</button>
-    <button type="button" role="tab" data-tab="cats" aria-selected="false">Categorías</button>
+    <button type="button" role="tab" data-tab="cats" aria-selected="false">Análisis</button>
     <button type="button" role="tab" data-tab="grupos" aria-selected="false">Grupos</button>
     <button type="button" role="tab" data-tab="import" aria-selected="false">Importar</button>
     <button type="button" role="tab" data-tab="ajustes" aria-selected="false">Ajustes</button>
@@ -236,9 +258,11 @@ const DEFAULT_CATS = [
   {id:'comida', n:'Comida y salidas', t:'gasto', c:1, k:['rappi','pedidosya','pedidos ya','delivery','pizza','empanada','restaurant','resto','bar','cafe','cafeteria','birra','cerveza','almuerzo','cena','desayuno','merienda','helado','hamburguesa','sushi','mcdonald','burger','parrilla','comida','vino','fernet']},
   {id:'transporte', n:'Transporte', t:'gasto', c:2, k:['sube','colectivo','bondi','tren','subte','uber','cabify','didi','taxi','remis','nafta','combustible','peaje','estacionamiento','ypf','shell','axion','cochera','vtv','auto','mecanico','gomeria']},
   {id:'casa', n:'Casa y servicios', t:'gasto', c:3, k:['luz','edenor','edesur','gas','metrogas','naturgy','agua','aysa','internet','fibertel','telecentro','flow','celular','personal','claro','movistar','expensas','alquiler','ferreteria','limpieza','abl','seguro']},
-  {id:'salud', n:'Salud', t:'gasto', c:4, k:['farmacia','farmacity','medico','prepaga','osde','swiss medical','galeno','omint','dentista','odontolog','psicolog','remedio','medicamento','analisis','kinesio','gimnasio','gym']},
+  {id:'salud', n:'Salud', t:'gasto', c:4, k:['farmacia','farmacity','medico','prepaga','osde','swiss medical','galeno','omint','dentista','odontolog','psicolog','remedio','medicamento','analisis','kinesio']},
   {id:'subs', n:'Suscripciones', t:'gasto', c:5, k:['netflix','spotify','disney','youtube','hbo','prime video','icloud','apple','google one','chatgpt','openai','claude','anthropic','xbox','playstation','steam','paramount','suscripcion']},
   {id:'compras', n:'Compras', t:'gasto', c:6, k:['mercado libre','mercadolibre','ropa','zapatilla','remera','pantalon','regalo','shopping','fravega','garbarino','musimundo','temu','shein','amazon']},
+  {id:'deportes', n:'Deportes', t:'gasto', c:1, k:['deporte','futbol','fulbito','cancha','padel','paddle','tenis','club','natacion','pileta','running','maraton','bici','bicicleta','decathlon','botines','raqueta','golf','hockey','rugby','voley','basquet','entrenador']},
+  {id:'gym', n:'Gimnasio', t:'gasto', c:5, k:['gimnasio','gym','gimnacio','megatlon','sportclub','smartfit','crossfit','musculacion','pilates','yoga','funcional','pase libre']},
   {id:'ocio', n:'Ocio y viajes', t:'gasto', c:7, k:['cine','recital','entrada','teatro','boliche','juego','viaje','hotel','pasaje','vacaciones','airbnb','despegar']},
   {id:'educ', n:'Educación', t:'gasto', c:2, k:['curso','facultad','universidad','colegio','cuota escolar','libro','libreria','udemy','clase']},
   {id:'mascotas', n:'Mascotas', t:'gasto', c:4, k:['veterinari','perro','gato','balanceado','mascota','pet']},
@@ -262,6 +286,19 @@ function applyConfig(cfg){
   CUR = (cfg && cfg.currency) || 'ARS';
 }
 const config = () => store.docs.config || null;
+const CONFIG_V = 2;
+// Agrega a una configuración vieja las categorías nuevas de DEFAULT_CATS (sin tocar las que la persona cambió).
+function migrateConfig(){
+  const cfg = config(); if (!cfg || (cfg.v||1) >= CONFIG_V) return;
+  const c = clone(cfg); c.cats = c.cats || clone(DEFAULT_CATS);
+  for (const id of ['deportes','gym']) {
+    if (c.cats.some(x=>x.id===id)) continue;
+    const pos = c.cats.findIndex(x=>x.id==='ocio');
+    c.cats.splice(pos<0 ? c.cats.length : pos, 0, clone(DEFAULT_CATS.find(x=>x.id===id)));
+  }
+  const salud = c.cats.find(x=>x.id==='salud'); if (salud) salud.k = salud.k.filter(k=>k!=='gimnasio'&&k!=='gym');
+  c.v = CONFIG_V; saveDoc('config', c);
+}
 function saveConfig(cfg){ saveDoc('config', cfg); applyConfig(cfg); }
 const lastAcc = () => { const a = lsGet('bolsillo:lastAcc', null); return ACCOUNTS.includes(a) ? a : ACCOUNTS[0]; };
 const catColor = id => { const c = CAT[id]; return !c || c.c<0 ? 'var(--muted)' : `var(--c${c.c})`; };
@@ -517,7 +554,7 @@ function monthTotals(items){
 function render(){
   // Quien llega por el link de un grupo entra directo al grupo, con una configuración básica que después puede cambiar.
   if (store.mode !== 'loading' && !config() && /^#g[a-z0-9]{6,}$/i.test(location.hash)) {
-    saveConfig({ v: 1, currency: CUR, accounts: PRESET_ACCOUNTS.filter(a=>a.name==='Mercado Pago'||a.name==='Efectivo').map(clone), cats: clone(DEFAULT_CATS), importProfiles: {} });
+    saveConfig({ v: CONFIG_V, currency: CUR, accounts: PRESET_ACCOUNTS.filter(a=>a.name==='Mercado Pago'||a.name==='Efectivo').map(clone), cats: clone(DEFAULT_CATS), importProfiles: {} });
     state.tab = 'grupos';
   }
   applyConfig(config());
@@ -525,6 +562,8 @@ function render(){
   $('#setup').hidden = !needSetup; $('#main').hidden = needSetup;
   if (needSetup) { renderSetup(); return; }
   gCheckHash();
+  migrateConfig();
+  inboxWatch();
   const [y,m] = state.ym.split('-').map(Number);
   const mName = new Date(y, m-1, 1).toLocaleDateString('es-AR', {month:'long'});
   const ml = new Date(y, m-1, 1).toLocaleDateString('es-AR', {month:'long', year:'numeric'});
@@ -598,6 +637,8 @@ function renderMovs(items, t){
   if (accs.length) h += `<div class="chips" role="group" aria-label="Filtrar por cuenta">
     <button type="button" class="chip ${!state.filterAcc?'on':''}" data-action="facc" data-v="">Todas</button>
     ${ACCOUNTS.filter(a=>accs.includes(a)).map(a=>`<button type="button" class="chip num ${state.filterAcc===a?'on':''}" data-action="facc" data-v="${esc(a)}">${esc(a)} <b>${fmt(t.byAcc[a],true)}</b></button>`).join('')}</div>`;
+  const pend = items.filter(x=>x.pend).length;
+  if (pend) h += `<div class="stats">${pend} movimiento${pend>1?'s se anotaron':' se anotó'} solo${pend>1?'s':''}. Tocalos para revisar la categoría, o confirmalos.<div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="confirmall">Confirmar todos</button></div></div>`;
   if (state.filterCat) h += `<div class="filter-note">Mostrando solo <b>${esc(CAT[state.filterCat]?.n)}</b><button type="button" class="btn small" data-action="fcat" data-v="">Ver todo</button></div>`;
   if (!list.length) {
     h += items.length ? `<div class="empty"><span>No hay movimientos con ese filtro.</span></div>`
@@ -612,7 +653,7 @@ function renderMovs(items, t){
     for (const it of arr) {
       h += `<button type="button" class="row" data-action="edit" data-id="${esc(it.id)}" aria-expanded="${state.editId===it.id}">
         <span class="dot" style="background:${catColor(it.cat)}"></span>
-        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}</span></span>
+        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.pend?'<span class="badge warn">Revisar</span>':''}</span></span>
         <span class="amt num ${it.tipo==='gasto'?'g':'i'}">${it.tipo==='gasto'?'−':'+'}${fmt(it.monto)}</span></button>`;
       if (state.editId===it.id) {
         const buf = state.editBuf || it;
@@ -628,22 +669,127 @@ function renderMovs(items, t){
   }
   el.innerHTML = h;
 }
+/* ---------- Análisis: ingresos y gastos mes a mes ---------- */
+function shiftYm(ym, d){ const [y,m] = ym.split('-').map(Number); return ymd(new Date(y, m-1+d, 1)).slice(0,7); }
+const monthShort = ym => { const [y,m] = ym.split('-').map(Number); return new Date(y, m-1, 1).toLocaleDateString('es-AR', {month:'short'}).replace('.',''); };
+const monthLong = ym => { const [y,m] = ym.split('-').map(Number); const s = new Date(y, m-1, 1).toLocaleDateString('es-AR', {month:'long', year:'numeric'}); return s[0].toUpperCase()+s.slice(1); };
+function fmtShort(n){
+  const a = Math.abs(n), s = n<0 ? '−' : '';
+  if (a >= 1e6) return s + (a/1e6).toLocaleString('es-AR', {maximumFractionDigits:1}) + ' M';
+  if (a >= 1e3) return s + Math.round(a/1e3).toLocaleString('es-AR') + ' mil';
+  return s + Math.round(a);
+}
+function niceStep(max, ticks){
+  const raw = max / ticks, p = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  return [1, 2, 2.5, 5, 10].map(x=>x*p).find(x=>x >= raw) || p*10;
+}
+function monthSeries(n){
+  const out = [];
+  for (let i=n-1; i>=0; i--) {
+    const ym = shiftYm(state.ym, -i), t = monthTotals(monthItems(ym));
+    out.push({ ym, ing: t.i, gas: t.g, bal: t.i - t.g });
+  }
+  return out;
+}
+// Barras agrupadas (ingresos/gastos) o barras desde cero (balance). Un solo eje.
+function barChart(id, data, width, mode){
+  const H = 190, L = 48, R = 6, T = 10, B = 24, w = width - L - R, h = H - T - B;
+  const vals = mode==='bal' ? data.map(d=>d.bal) : data.flatMap(d=>[d.ing, d.gas]);
+  let max = Math.max(0, ...vals), min = Math.min(0, ...vals);
+  if (max===min) max = 1;
+  const step = niceStep(max - min, 4);
+  max = Math.ceil(max/step)*step; min = Math.floor(min/step)*step;
+  const y = v => T + h - (v - min) / (max - min) * h;
+  const gw = w / data.length;
+  let g = '';
+  for (let v = min; v <= max + step/2; v += step) g += `<line x1="${L}" x2="${L+w}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${fmtShort(v)}</text>`;
+  const bar = (x, bw, v, color) => {
+    if (!v) return '';
+    const y0 = y(0), y1 = y(v), top = Math.min(y0, y1), hh = Math.max(Math.abs(y1 - y0), 1), r = Math.min(4, bw/2, hh);
+    // Esquinas redondeadas solo en la punta; la base queda recta sobre el cero.
+    return v > 0
+      ? `<path d="M${x},${y0} V${top+r} Q${x},${top} ${x+r},${top} H${x+bw-r} Q${x+bw},${top} ${x+bw},${top+r} V${y0} Z" fill="${color}"/>`
+      : `<path d="M${x},${y0} V${top+hh-r} Q${x},${top+hh} ${x+r},${top+hh} H${x+bw-r} Q${x+bw},${top+hh} ${x+bw},${top+hh-r} V${y0} Z" fill="${color}"/>`;
+  };
+  data.forEach((d, i) => {
+    const x0 = L + i*gw, pad = Math.max(4, gw*0.18);
+    if (mode==='bal') g += bar(x0+pad, gw-2*pad, d.bal, d.bal>=0 ? 'var(--v-ing)' : 'var(--v-gas)');
+    else { const bw = (gw - 2*pad - 2) / 2; g += bar(x0+pad, bw, d.ing, 'var(--v-ing)') + bar(x0+pad+bw+2, bw, d.gas, 'var(--v-gas)'); }
+    g += `<text x="${x0+gw/2}" y="${H-6}" text-anchor="middle" class="${d.ym===state.ym?'sel':''}">${esc(monthShort(d.ym))}</text>`;
+    g += `<rect x="${x0}" y="${T}" width="${gw}" height="${h+B}" fill="transparent" data-i="${i}" data-chart="${id}" style="cursor:pointer"/>`;
+  });
+  g += `<line x1="${L}" x2="${L+w}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-width="1"/>`;
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${width} ${H}" width="${width}" height="${H}" role="img" aria-label="${mode==='bal'?'Balance por mes':'Ingresos y gastos por mes'}">${g}</svg><div class="tip" hidden></div></div>`;
+}
 function renderCats(items, t){
   const el = $('#tab-cats');
+  const n = state.anaN || 6, data = monthSeries(n);
+  const width = Math.max(280, Math.min(560, (el.clientWidth || $('#main').clientWidth || 360)));
+  const withData = data.filter(d=>d.ing || d.gas);
+  const avgG = withData.length ? Math.round(withData.reduce((s,d)=>s+d.gas,0)/withData.length) : 0;
+  const avgB = withData.length ? Math.round(withData.reduce((s,d)=>s+d.bal,0)/withData.length) : 0;
+  const prev = data.slice(0,-1).filter(d=>d.gas);
+  const prevAvg = prev.length ? prev.reduce((s,d)=>s+d.gas,0)/prev.length : 0;
+  const vs = prevAvg ? (t.g - prevAvg)/prevAvg*100 : null;
+  state.anaData = data;
+  let h = `<div class="chips" role="group" aria-label="Período">${[3,6,12].map(k=>`<button type="button" class="chip ${n===k?'on':''}" data-action="anan" data-v="${k}">${k} meses</button>`).join('')}</div>`;
+  if (!withData.length) {
+    h += `<div class="empty"><strong>Todavía no hay datos para analizar</strong><span>Cuando anotes o importes movimientos, acá vas a ver tus ingresos y gastos mes a mes.</span></div>`;
+  } else {
+    h += `<div class="tiles">
+      <div class="tile"><small>Gasto promedio</small><b class="num">${fmt(avgG)}</b><small>por mes</small></div>
+      <div class="tile"><small>Ahorro promedio</small><b class="num" style="color:${avgB<0?'var(--gasto)':'var(--ink)'}">${fmt(avgB,true)}</b><small>por mes</small></div>
+      <div class="tile"><small>${esc(monthShort(state.ym))} vs. meses anteriores</small><b class="num">${vs==null?'—':(vs>0?'+':'')+Math.round(vs)+'%'}</b><small>${vs==null?'sin datos previos':vs>0?'gastaste más':'gastaste menos'}</small></div></div>
+      <h2>Ingresos y gastos</h2>
+      <div class="legend"><span><i style="background:var(--v-ing)"></i>Ingresos</span><span><i style="background:var(--v-gas)"></i>Gastos</span></div>
+      ${barChart('chIG', data, width, 'ig')}
+      <h2>Balance de cada mes</h2>
+      <p class="muted">Lo que te quedó: ingresos menos gastos. Tocá un mes para verlo en detalle.</p>
+      ${barChart('chBal', data, width, 'bal')}
+      <details><summary>Ver como tabla</summary><div class="tbl" style="margin-top:8px"><table><thead><tr><th>Mes</th><th class="r">Ingresos</th><th class="r">Gastos</th><th class="r">Balance</th></tr></thead><tbody>
+        ${data.map(d=>`<tr><td>${esc(monthLong(d.ym))}</td><td class="r num">${fmt(d.ing)}</td><td class="r num">${fmt(d.gas)}</td><td class="r num">${fmt(d.bal,true)}</td></tr>`).join('')}</tbody></table></div></details>`;
+  }
+  // Categorías del mes elegido, comparadas con el promedio de los meses anteriores del período.
+  const prevMonths = data.slice(0,-1).map(d=>d.ym).filter(ym=>monthItems(ym).length);
+  const catAvg = {};
+  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto') catAvg[it.cat] = (catAvg[it.cat]||0) + it.monto/prevMonths.length;
   const block = (tipo, title) => {
     const sums = {}; let tot = 0;
     for (const it of items) if (it.tipo===tipo) { sums[it.cat] = (sums[it.cat]||0)+it.monto; tot += it.monto; }
     const rows = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
-    if (!rows.length) return `<h2>${title}</h2><p class="filter-note">Sin ${title.toLowerCase()} este mes.</p>`;
-    return `<h2>${title}</h2><div class="catlist">` + rows.map(([c,v])=>`<button type="button" class="catrow" data-action="fcat" data-v="${esc(c)}">
-      <span class="n"><span class="dot" style="background:${catColor(c)}"></span>${esc(CAT[c]?.n||c)}<span class="pct num">${Math.round(v/tot*100)}%</span></span>
-      <span class="num amt">${fmt(v)}</span><span class="bar"><i style="width:${(v/rows[0][1]*100).toFixed(1)}%;background:${catColor(c)}"></i></span></button>`).join('') + `</div>`;
+    if (!rows.length) return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><p class="filter-note">Sin ${title.toLowerCase()} este mes.</p>`;
+    return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><div class="catlist">` + rows.map(([c,v])=>{
+      const avg = tipo==='gasto' && prevMonths.length ? catAvg[c]||0 : null;
+      const d = avg ? Math.round((v-avg)/avg*100) : null;
+      return `<button type="button" class="catrow" data-action="fcat" data-v="${esc(c)}">
+      <span class="n"><span class="dot" style="background:${catColor(c)}"></span>${esc(CAT[c]?.n||c)}<span class="pct num">${Math.round(v/tot*100)}%</span>${d!=null&&Math.abs(d)>=10?`<span class="delta num">${d>0?'▲':'▼'} ${Math.abs(d)}% vs. promedio</span>`:''}</span>
+      <span class="num amt">${fmt(v)}</span><span class="bar"><i style="width:${(v/rows[0][1]*100).toFixed(1)}%;background:${catColor(c)}"></i></span></button>`; }).join('') + `</div>`;
   };
+  h += block('gasto','Gastos') + block('ingreso','Ingresos');
   const otros = items.filter(x=>x.cat==='otros'||x.cat==='otros_in').length;
-  let h = block('gasto','Gastos') + block('ingreso','Ingresos');
   if (otros && store.sample) h += `<div class="stats">${otros} movimiento${otros>1?'s':''} de este mes ${otros>1?'están':'está'} en "Otros". <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="aicats" ${state.catBusy?'disabled':''}>${state.catBusy?'<span class="spin" aria-hidden="true"></span> Categorizando…':'Categorizar con Claude'}</button></div></div>`;
   el.innerHTML = h;
 }
+// Tooltip al pasar el dedo o el mouse; tocar un mes lo abre.
+function chartTip(e){
+  const r = e.target.closest && e.target.closest('rect[data-chart]');
+  document.querySelectorAll('.chart .tip').forEach(t=>{ if (!r || !t.parentElement.contains(r)) t.hidden = true; });
+  if (!r || !state.anaData) return;
+  const d = state.anaData[+r.dataset.i], box = r.closest('.chart'), tip = box.querySelector('.tip');
+  tip.innerHTML = `<b>${esc(monthLong(d.ym))}</b><div class="r"><span>Ingresos</span><span class="num">${fmt(d.ing)}</span></div><div class="r"><span>Gastos</span><span class="num">${fmt(d.gas)}</span></div><div class="r"><span>Balance</span><span class="num">${fmt(d.bal,true)}</span></div>`;
+  tip.hidden = false;
+  const bb = box.getBoundingClientRect(), rb = r.getBoundingClientRect();
+  const x = Math.min(Math.max(rb.left - bb.left + rb.width/2 - tip.offsetWidth/2, 0), bb.width - tip.offsetWidth);
+  tip.style.left = x + 'px'; tip.style.top = '-6px';
+}
+document.addEventListener('pointermove', chartTip);
+document.addEventListener('click', e => {
+  const r = e.target.closest('rect[data-chart]');
+  if (r && state.anaData) { state.ym = state.anaData[+r.dataset.i].ym; render(); return; }
+  const b = e.target.closest('[data-action="anan"]');
+  if (b) { state.anaN = +b.dataset.v; render(); }
+});
+let resizeT; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(()=>{ if (state.tab==='cats') render(); }, 200); });
 
 /* ---------- Configuración ---------- */
 function renderSetup(){
@@ -695,6 +841,7 @@ function renderAjustes(){
          <div class="btn-row"><button type="button" class="btn" data-action="logout">Cerrar sesión</button></div>`
       : `<h2>Tu cuenta</h2><p class="muted">Estás usando Bolsillo sin cuenta: tus datos quedan asociados a este navegador. Iniciá sesión con Google para no perderlos y verlos en otros dispositivos.</p>
          <div class="btn-row"><button type="button" class="btn primary" data-action="login">Iniciar sesión con Google</button></div>`) : ''}
+    ${store.backend==='firebase' ? renderAutoSection() : ''}
     <h2>Tus datos</h2>
     <p class="muted">Descargá todos tus movimientos en CSV para abrirlos en Excel o Google Sheets.</p>
     <div class="btn-row"><button type="button" class="btn" data-action="export">Exportar CSV</button></div>
@@ -993,6 +1140,178 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('keydown', e => { if (e.target.id==='gq' && e.key==='Enter' && !e.shiftKey) { e.preventDefault(); $('[data-action="gquick"]')?.click(); } });
+/* ---------- Anotar automáticamente (Gmail y Siri) ----------
+   El script de Gmail y el atajo de Siri escriben en inbox/<clave>/items; la app los
+   convierte en movimientos "para revisar" y los borra de la bandeja. */
+const randomKey = n => [...crypto.getRandomValues(new Uint8Array(n))].map(x=>'abcdefghijkmnpqrstuvwxyz23456789'[x%32]).join('');
+function copyText(t, ok){ navigator.clipboard.writeText(t).then(()=>toast(ok)).catch(()=>toast('No se pudo copiar. Mantené apretado el texto para copiarlo.', true)); }
+const inboxURL = () => { const f = window.BOLSILLO_FIREBASE || {}; return `https://firestore.googleapis.com/v1/projects/${f.projectId}/databases/(default)/documents/inbox/${config()?.inboxKey}/items?key=${f.apiKey}`; };
+function inboxWatch(){
+  const k = config()?.inboxKey;
+  if (store.backend!=='firebase' || !k || store.inboxUnsub) return;
+  store.inboxUnsub = store.db.collection(`inbox/${k}/items`).onSnapshot(snap => {
+    if (snap.size) processInbox(k, snap.docs.map(d=>({ id: d.id, ...d.data() })));
+  }, () => {});
+}
+function processInbox(key, list){
+  const all = allItems();
+  const seen = new Set(all.flatMap(x=>[x.id, x.ext]).filter(Boolean));
+  const manual = all.filter(x=>x.origen==='manual' && !x.ext);
+  const add = [], upd = [];
+  for (const m of list) {
+    const ref = 'a' + m.id;
+    if (seen.has(ref)) continue;
+    if (m.text) {
+      // Texto dictado por Siri: se interpreta como una frase escrita en la app.
+      parseLocal(String(m.text)).forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'auto', pend: true, ts: Date.now() }));
+      continue;
+    }
+    const tipo = m.tipo==='ingreso' ? 'ingreso' : 'gasto', monto = Math.abs(Number(m.amount)) || 0;
+    if (!monto) continue;
+    const fecha = /^\d{4}-\d{2}-\d{2}$/.test(m.fecha||'') ? m.fecha : ymd(today);
+    const desc = String(m.desc||'').trim().slice(0,80) || (tipo==='gasto' ? 'Gasto' : 'Ingreso');
+    // Si ya lo anotaste a mano o por voz, se marca como conciliado en vez de duplicarlo.
+    const mi = manual.findIndex(x=>x.tipo===tipo && Math.abs(x.monto-monto)<0.01 && Math.abs((toDate(x.fecha)-toDate(fecha))/864e5)<=2);
+    if (mi>-1) { upd.push({ ...clone(manual[mi]), conc: true, ext: ref }); manual.splice(mi,1); continue; }
+    const cuenta = detectAccount(norm(m.source||'')) || lastAcc();
+    add.push({ id: ref, ext: ref, tipo, monto, cat: guessCat(desc, tipo), cuenta, fecha, desc, origen: 'auto', pend: true, ts: Date.now() });
+  }
+  if (add.length || upd.length) putItems([...add, ...upd]);
+  for (const m of list) store.db.doc(`inbox/${key}/items/${m.id}`).delete().catch(()=>{});
+  if (add.length) toast(add.length===1 ? `Se anotó solo: ${fmt(add[0].monto)} · ${add[0].desc}` : `Se anotaron solos ${add.length} movimientos. Revisalos en Movimientos.`);
+  else if (upd.length) toast('Un aviso coincidió con un gasto que ya habías anotado: quedó conciliado.');
+}
+function renderAutoSection(){
+  const k = config()?.inboxKey;
+  if (!k) return `<h2>Anotar automáticamente</h2>
+    <p class="muted">Bolsillo puede leer los avisos de pago que te llegan a Gmail (Mercado Pago y bancos) y anotarlos solos, y recibir gastos que le dictás a Siri sin abrir la app.</p>
+    <div class="btn-row"><button type="button" class="btn primary" data-action="inboxon">Activar</button></div>`;
+  return `<h2>Anotar automáticamente</h2>
+    <p class="muted">Lo que llegue por estas vías aparece en Movimientos con la marca "Revisar".</p>
+    <details><summary>Avisos de Gmail (Mercado Pago y bancos)</summary>
+      <ol class="steps">
+        <li>Tocá <b>Copiar código para Gmail</b>.</li>
+        <li>En la computadora, entrá a <b>script.google.com</b> con tu cuenta de Gmail y tocá <b>Nuevo proyecto</b>.</li>
+        <li>Borrá lo que hay, pegá el código y guardá (ícono de disquete).</li>
+        <li>Arriba, elegí la función <b>instalar</b> y tocá <b>Ejecutar</b>. Google te va a pedir permiso para leer tus mails: aceptalo (si dice "Google no verificó esta app", tocá <i>Configuración avanzada → Ir a Bolsillo</i>; el código es tuyo y corre en tu cuenta).</li>
+        <li>Listo: cada 5 minutos revisa los avisos nuevos.</li>
+      </ol>
+      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="copyscript">Copiar código para Gmail</button></div>
+    </details>
+    <details><summary>Siri en iPhone: "Oye Siri, anotar gasto"</summary>
+      <ol class="steps">
+        <li>Tocá <b>Copiar dirección para Siri</b>.</li>
+        <li>Abrí la app <b>Atajos</b> → <b>+</b> (nuevo atajo) y ponele de nombre <b>Anotar gasto</b>.</li>
+        <li>Agregá la acción <b>Dictar texto</b> (idioma: Español).</li>
+        <li>Agregá la acción <b>Obtener contenido de URL</b> y pegá la dirección copiada. Tocá la flecha de <i>Mostrar más</i>: Método <b>POST</b>, Cuerpo de la solicitud <b>JSON</b>.</li>
+        <li>En el JSON agregá un campo <b>Diccionario</b> llamado <code>fields</code>; adentro, otro <b>Diccionario</b> llamado <code>text</code>; y adentro de ese, un campo <b>Texto</b> llamado <code>stringValue</code> con la variable <b>Texto dictado</b>.</li>
+        <li>Agregá la acción <b>Mostrar notificación</b> con el texto "Anotado".</li>
+        <li>Probalo: "Oye Siri, anotar gasto" y decí, por ejemplo, "4.500 en el súper con Mercado Pago".</li>
+      </ol>
+      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="copykey">Copiar dirección para Siri</button></div>
+    </details>
+    <p class="muted">La clave de tu bandeja está incluida en el código y en la dirección: no los compartas. Si alguna vez se filtraron, generá una clave nueva.</p>
+    <div class="btn-row"><button type="button" class="btn small danger" data-action="inboxreset">${state.confirmDel==='inbox'?'Tocá de nuevo: el script y el atajo actuales dejan de funcionar':'Generar clave nueva'}</button></div>`;
+}
+function gmailScript(){
+  const f = window.BOLSILLO_FIREBASE || {};
+  const fuentes = [['Mercado Pago','mercadopago'], ...ACC.filter(a=>a.name!=='Mercado Pago' && a.name!=='Efectivo').map(a=>[a.name, (a.alias&&a.alias[0]) || norm(a.name)])];
+  return `/**
+ * Bolsillo: anota solos los pagos que te avisan por Gmail.
+ * Instalación: elegí la función "instalar" arriba y tocá Ejecutar (una sola vez).
+ * Después, cada 5 minutos revisa los avisos nuevos y los manda a tu Bolsillo.
+ * No compartas este código: incluye la clave de tu bandeja.
+ */
+const BOLSILLO = { proyecto: '${f.projectId}', apiKey: '${f.apiKey}', clave: '${config()?.inboxKey}' };
+
+// Remitentes que se revisan y a qué cuenta corresponden. Podés agregar o sacar.
+const FUENTES = [
+${fuentes.map(([c,b])=>`  { cuenta: ${JSON.stringify(c)}, buscar: ${JSON.stringify(b)} },`).join('\n')}
+];
+
+const GASTO = /(pagaste|tu pago|pago aprobado|compraste|tu compra|transferiste|enviaste|consumo|compra con|d[eé]bito|realizaste un pago|extrajiste|extracci[oó]n)/i;
+const INGRESO = /(recibiste|te (enviaron|transfirieron|pagaron|lleg[oó])|cobraste|se acredit[oó]|acreditamos|ingres[oó] dinero)/i;
+const IGNORAR = /(promo|descuento|beneficio|sin inter[eé]s|invert|pr[eé]stamo|oferta|resumen|vence|vencimiento|c[oó]digo|verific|inicio de sesi[oó]n|nuevo dispositivo|encuesta)/i;
+
+function instalar() {
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('revisarMails').timeBased().everyMinutes(5).create();
+  revisarMails();
+}
+
+function revisarMails() {
+  const props = PropertiesService.getScriptProperties();
+  limpiarViejos(props);
+  const de = FUENTES.map(f => 'from:' + f.buscar).join(' OR ');
+  const hilos = GmailApp.search('newer_than:2d (' + de + ')', 0, 40);
+  for (const hilo of hilos) {
+    for (const msg of hilo.getMessages()) {
+      const id = msg.getId();
+      if (props.getProperty(id) || msg.getDate() < new Date(Date.now() - 2 * 864e5)) continue;
+      const mov = interpretar(msg);
+      if (!mov) { props.setProperty(id, String(Date.now())); continue; }
+      if (enviar(id, mov)) props.setProperty(id, String(Date.now()));
+    }
+  }
+}
+
+function interpretar(msg) {
+  const remitente = msg.getFrom().toLowerCase();
+  const fuente = FUENTES.find(f => remitente.includes(f.buscar));
+  if (!fuente) return null;
+  const asunto = msg.getSubject() || '';
+  const cuerpo = (msg.getPlainBody() || '').replace(/\\s+/g, ' ').slice(0, 3000);
+  if (IGNORAR.test(asunto)) return null;
+  const inicio = cuerpo.slice(0, 500);
+  const tipo = INGRESO.test(asunto) ? 'ingreso' : GASTO.test(asunto) ? 'gasto'
+    : INGRESO.test(inicio) ? 'ingreso' : GASTO.test(inicio) ? 'gasto' : null;
+  if (!tipo) return null;
+  const m = (asunto + ' ' + cuerpo).match(/\\$\\s?(\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?|\\d+(?:,\\d{1,2})?)/);
+  if (!m) return null;
+  const monto = Number(m[1].replace(/\\./g, '').replace(',', '.'));
+  if (!(monto > 0)) return null;
+  return {
+    tipo, monto, cuenta: fuente.cuenta, desc: descripcion(asunto, cuerpo),
+    fecha: Utilities.formatDate(msg.getDate(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+  };
+}
+
+function descripcion(asunto, cuerpo) {
+  const patrones = [
+    /(?:pagaste|tu pago|compraste|tu compra|consumo|compra)\\s+(?:a|en|de)\\s+([^.,$\\n]{2,40})/i,
+    /(?:transferiste|enviaste)[^$]*?\\s+a\\s+([^.,$\\n]{2,40})/i,
+    /(?:recibiste|te envi[oó]|te transfiri[oó])[\\s\\S]{0,40}?\\s+de\\s+([^.,$\\n]{2,40})/i,
+  ];
+  for (const p of patrones) {
+    const r = asunto.match(p) || cuerpo.slice(0, 600).match(p);
+    if (r) return r[1].replace(/\\s+(fue|por|con|el d[ií]a|de \\$).*$/i, '').trim();
+  }
+  return asunto.slice(0, 60);
+}
+
+function enviar(id, mov) {
+  const url = 'https://firestore.googleapis.com/v1/projects/' + BOLSILLO.proyecto
+    + '/databases/(default)/documents/inbox/' + BOLSILLO.clave + '/items?documentId=' + id + '&key=' + BOLSILLO.apiKey;
+  const cuerpo = { fields: {
+    tipo: { stringValue: mov.tipo }, amount: { doubleValue: mov.monto },
+    desc: { stringValue: mov.desc.slice(0, 120) }, source: { stringValue: mov.cuenta },
+    fecha: { stringValue: mov.fecha }, ts: { integerValue: String(Date.now()) },
+  } };
+  const r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(cuerpo), muteHttpExceptions: true });
+  const c = r.getResponseCode();
+  if (c === 200 || c === 409) return true;
+  console.log('No se pudo enviar (' + c + '): ' + r.getContentText().slice(0, 300));
+  return false;
+}
+
+function limpiarViejos(props) {
+  const limite = Date.now() - 4 * 864e5;
+  const todo = props.getProperties();
+  for (const k in todo) if (Number(todo[k]) < limite) props.deleteProperty(k);
+}
+`;
+}
+
 function gCheckHash(){
   if (G.hashChecked || store.mode==='loading' || !config()) return;
   G.hashChecked = true;
@@ -1200,6 +1519,7 @@ document.addEventListener('click', e => {
   else if (a==='saveedit') {
     const orig = monthItems(state.ym).find(x=>x.id===state.editId); if (!orig) return;
     const it = readForm('e', state.editBuf);
+    delete it.pend;
     if (!it.monto) { toast('El monto no puede quedar vacío.', true); return; }
     if (it.fecha.slice(0,7) !== orig.fecha.slice(0,7)) removeItem(orig.id, orig.fecha);
     const learn = $('#e-learn')?.checked && learnKey(it.desc);
@@ -1231,7 +1551,7 @@ document.addEventListener('click', e => {
   }
   else if (a==='setupdone') {
     const all = [...PRESET_ACCOUNTS, ...state.setup.custom];
-    saveConfig({ v: 1, currency: state.setup.cur, accounts: all.filter(x=>state.setup.sel.has(x.name)).map(clone), cats: clone(DEFAULT_CATS), importProfiles: {} });
+    saveConfig({ v: CONFIG_V, currency: state.setup.cur, accounts: all.filter(x=>state.setup.sel.has(x.name)).map(clone), cats: clone(DEFAULT_CATS), importProfiles: {} });
     if (!ACCOUNTS.includes(state.imp.account)) state.imp.account = ACCOUNTS[0];
     render(); renderComposer();
   }
@@ -1255,6 +1575,11 @@ document.addEventListener('click', e => {
     toast(moved.length ? `Categoría quitada. ${moved.length} movimiento${moved.length>1?'s pasaron':' pasó'} a "Otros".` : 'Categoría quitada.');
   }
   else if (a==='export') exportCSV();
+  else if (a==='confirmall') { putItems(monthItems(state.ym).filter(x=>x.pend).map(x=>{ const y = clone(x); delete y.pend; return y; })); render(); toast('Movimientos confirmados.'); }
+  else if (a==='inboxon') { const k = randomKey(24); cfgEdit(c => c.inboxKey = k); render(); }
+  else if (a==='inboxreset') { if (state.confirmDel!=='inbox') { state.confirmDel = 'inbox'; render(); return; } state.confirmDel = null; if (store.inboxUnsub) { store.inboxUnsub(); store.inboxUnsub = null; } cfgEdit(c => c.inboxKey = randomKey(24)); render(); toast('Clave nueva generada. Actualizá el script de Gmail y el atajo de Siri.'); }
+  else if (a==='copyscript') copyText(gmailScript(), 'Código copiado. Pegalo en Google Apps Script.');
+  else if (a==='copykey') copyText(inboxURL(), 'Dirección copiada. Pegala en el atajo de Siri.');
   else if (a==='mic') listen('#frase', anotar);
   else if (a==='login') login();
   else if (a==='logout') store.auth.signOut();

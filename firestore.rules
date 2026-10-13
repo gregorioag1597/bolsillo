@@ -7,6 +7,25 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Bandeja de entrada: lo que mandan el script de Gmail y el atajo de Siri.
+    // Solo se puede escribir conociendo la clave (larga y al azar) de cada persona;
+    // la app la lee, anota los movimientos y los borra de acá.
+    match /inbox/{key}/items/{id} {
+      allow create: if key.size() >= 20
+        && request.resource.data.keys().hasOnly(['tipo', 'amount', 'desc', 'source', 'fecha', 'ts', 'text'])
+        && (
+          (request.resource.data.amount is number
+            && request.resource.data.amount > 0
+            && request.resource.data.amount < 10000000000
+            && request.resource.data.desc is string
+            && request.resource.data.desc.size() <= 120)
+          || (request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 300)
+        );
+      allow read, delete: if request.auth != null;
+    }
+
     // Grupos: cualquiera que tenga el código (el link) puede verlo y anotar.
     // Nadie puede listar todos los grupos, así que sin el código no se encuentran.
     match /groups/{gid} {
