@@ -12,7 +12,8 @@ service cloud.firestore {
     // la app la lee, anota los movimientos y los borra de acá.
     match /inbox/{key}/items/{id} {
       allow create: if key.size() >= 20
-        && request.resource.data.keys().hasOnly(['tipo', 'amount', 'desc', 'source', 'fecha', 'ts', 'text'])
+        && request.resource.data.keys().hasOnly(['tipo', 'amount', 'desc', 'source', 'fecha', 'mon', 'ts', 'text'])
+        && (!('mon' in request.resource.data) || (request.resource.data.mon is string && request.resource.data.mon.size() == 3))
         && (
           (request.resource.data.amount is number
             && request.resource.data.amount > 0

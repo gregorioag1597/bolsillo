@@ -100,6 +100,8 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 .tile small{color:var(--muted);font-size:12px}
 .delta{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
 @media (max-width:420px){.tile{padding:8px}.tile b{font-size:14px}.tile small{font-size:11px}}
+.amt small.eq{display:block;font-size:11px;font-weight:400;color:var(--muted);text-align:right}
+#sumOther{display:block;font-size:13px;margin-top:2px}
 .btn.small{padding:6px 10px;font-size:13px}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
 
@@ -199,7 +201,7 @@ td.d{max-width:200px;overflow:hidden;text-overflow:ellipsis}
 
   <div id="main" class="app">
   <section class="summary" aria-label="Resumen del mes">
-    <div><span class="lbl" id="sumGastoLbl">Gastos del mes</span><span id="sumGasto" class="big num">$ 0</span></div>
+    <div><span class="lbl" id="sumGastoLbl">Gastos del mes</span><span id="sumGasto" class="big num">$ 0</span><span id="sumOther" class="muted num" hidden></span></div>
     <div class="sum-row">
       <div><span class="lbl">Ingresos</span><b id="sumIng" class="num">$ 0</b></div>
       <div><span class="lbl">Balance</span><b id="sumBal" class="num">$ 0</b></div>
@@ -254,20 +256,20 @@ const PRESET_ACCOUNTS = [
 const CURRENCIES = [['ARS','Peso argentino'],['UYU','Peso uruguayo'],['CLP','Peso chileno'],['MXN','Peso mexicano'],['COP','Peso colombiano'],['PEN','Sol'],['BOB','Boliviano'],['PYG','Guaraní'],['USD','Dólar'],['EUR','Euro']];
 let ACCOUNTS = [], ACC = [], CATS = [], CAT = {}, CUR = 'ARS';
 const DEFAULT_CATS = [
-  {id:'super', n:'Supermercado', t:'gasto', c:0, k:['super','supermercado','chino','coto','carrefour','jumbo','disco','vea','changomas','almacen','verduleria','verdura','carniceria','kiosco','dietetica','panaderia','fiambreria','mayorista','makro','vital','dia %']},
-  {id:'comida', n:'Comida y salidas', t:'gasto', c:1, k:['rappi','pedidosya','pedidos ya','delivery','pizza','empanada','restaurant','resto','bar','cafe','cafeteria','birra','cerveza','almuerzo','cena','desayuno','merienda','helado','hamburguesa','sushi','mcdonald','burger','parrilla','comida','vino','fernet']},
+  {id:'super', n:'Supermercado', t:'gasto', c:0, k:['super','supermercado','chino','coto','carrefour','jumbo','disco','vea','changomas','almacen','verduleria','verdura','carniceria','kiosco','dietetica','panaderia','fiambreria','mayorista','makro','vital']},
+  {id:'comida', n:'Comida y salidas', t:'gasto', c:1, k:['rappi','pedidosya','pedidos ya','delivery','pizza','empanada','restaurant','resto','bar','cafe','cafeteria','birra','cerveza','almuerzo','cena','desayuno','merienda','helado','hamburguesa','sushi','mcdonald*','burger','parrilla','comida','vino','fernet']},
   {id:'transporte', n:'Transporte', t:'gasto', c:2, k:['sube','colectivo','bondi','tren','subte','uber','cabify','didi','taxi','remis','nafta','combustible','peaje','estacionamiento','ypf','shell','axion','cochera','vtv','auto','mecanico','gomeria']},
   {id:'casa', n:'Casa y servicios', t:'gasto', c:3, k:['luz','edenor','edesur','gas','metrogas','naturgy','agua','aysa','internet','fibertel','telecentro','flow','celular','personal','claro','movistar','expensas','alquiler','ferreteria','limpieza','abl','seguro']},
-  {id:'salud', n:'Salud', t:'gasto', c:4, k:['farmacia','farmacity','medico','prepaga','osde','swiss medical','galeno','omint','dentista','odontolog','psicolog','remedio','medicamento','analisis','kinesio']},
+  {id:'salud', n:'Salud', t:'gasto', c:4, k:['farmacia','farmacity','medico','prepaga','osde','swiss medical','galeno','omint','dentista','odontolog*','psicolog*','remedio','medicamento','analisis','kinesio*']},
   {id:'subs', n:'Suscripciones', t:'gasto', c:5, k:['netflix','spotify','disney','youtube','hbo','prime video','icloud','apple','google one','chatgpt','openai','claude','anthropic','xbox','playstation','steam','paramount','suscripcion']},
   {id:'compras', n:'Compras', t:'gasto', c:6, k:['mercado libre','mercadolibre','ropa','zapatilla','remera','pantalon','regalo','shopping','fravega','garbarino','musimundo','temu','shein','amazon']},
   {id:'deportes', n:'Deportes', t:'gasto', c:1, k:['deporte','futbol','fulbito','cancha','padel','paddle','tenis','club','natacion','pileta','running','maraton','bici','bicicleta','decathlon','botines','raqueta','golf','hockey','rugby','voley','basquet','entrenador']},
   {id:'gym', n:'Gimnasio', t:'gasto', c:5, k:['gimnasio','gym','gimnacio','megatlon','sportclub','smartfit','crossfit','musculacion','pilates','yoga','funcional','pase libre']},
   {id:'ocio', n:'Ocio y viajes', t:'gasto', c:7, k:['cine','recital','entrada','teatro','boliche','juego','viaje','hotel','pasaje','vacaciones','airbnb','despegar']},
   {id:'educ', n:'Educación', t:'gasto', c:2, k:['curso','facultad','universidad','colegio','cuota escolar','libro','libreria','udemy','clase']},
-  {id:'mascotas', n:'Mascotas', t:'gasto', c:4, k:['veterinari','perro','gato','balanceado','mascota','pet']},
+  {id:'mascotas', n:'Mascotas', t:'gasto', c:4, k:['veterinari*','perro','gato','balanceado','mascota','pet']},
   {id:'impuestos', n:'Impuestos y comisiones', t:'gasto', c:6, k:['impuesto','iva','ganancias','comision','mantenimiento','sellos','arba','agip','afip','arca','monotributo','percepcion','retencion','iibb','interes','multa','cargo']},
-  {id:'transfer', n:'Transferencias', t:'gasto', c:-1, k:['transferencia','transferi','envie','le pase','le mande']},
+  {id:'transfer', n:'Transferencias', t:'gasto', c:-1, k:['transferencia','transferi*','envie','le pase','le mande']},
   {id:'otros', n:'Otros', t:'gasto', c:-1, k:[]},
   {id:'sueldo', n:'Sueldo', t:'ingreso', c:0, k:['sueldo','aguinaldo','haberes','salario','recibo']},
   {id:'cobros', n:'Cobros y ventas', t:'ingreso', c:1, k:['vendi','venta','cobre','cobro','honorario','factura','cliente','liquidacion']},
@@ -286,17 +288,20 @@ function applyConfig(cfg){
   CUR = (cfg && cfg.currency) || 'ARS';
 }
 const config = () => store.docs.config || null;
-const CONFIG_V = 2;
+const CONFIG_V = 3;
 // Agrega a una configuración vieja las categorías nuevas de DEFAULT_CATS (sin tocar las que la persona cambió).
 function migrateConfig(){
   const cfg = config(); if (!cfg || (cfg.v||1) >= CONFIG_V) return;
   const c = clone(cfg); c.cats = c.cats || clone(DEFAULT_CATS);
   for (const id of ['deportes','gym']) {
+    if ((cfg.v||1) >= 2) break;
     if (c.cats.some(x=>x.id===id)) continue;
     const pos = c.cats.findIndex(x=>x.id==='ocio');
     c.cats.splice(pos<0 ? c.cats.length : pos, 0, clone(DEFAULT_CATS.find(x=>x.id===id)));
   }
   const salud = c.cats.find(x=>x.id==='salud'); if (salud) salud.k = salud.k.filter(k=>k!=='gimnasio'&&k!=='gym');
+  const prefijos = ['odontolog','psicolog','kinesio','mcdonald','veterinari','transferi'];
+  for (const x of c.cats) x.k = x.k.filter(k=>k!=='dia %').map(k => prefijos.includes(k) ? k + '*' : k);
   c.v = CONFIG_V; saveDoc('config', c);
 }
 function saveConfig(cfg){ saveDoc('config', cfg); applyConfig(cfg); }
@@ -430,11 +435,18 @@ function detectDate(n){
   if (m) { let y = m[3] ? +m[3] : d.getFullYear(); if (y<100) y+=2000; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
   return null;
 }
+const kwCache = {};
+// Palabra clave como palabra completa (acepta plural). Con "*" al final, alcanza con que la palabra empiece así.
+function kwRx(k){
+  if (kwCache[k]) return kwCache[k];
+  const pre = k.endsWith('*'), base = rxEsc(norm(pre ? k.slice(0,-1) : k).trim());
+  return kwCache[k] = new RegExp('(^|[^a-z0-9])' + base + (pre ? '' : '(s|es)?(?![a-z0-9])'));
+}
 function guessCat(text, tipo){
   const n = ' ' + norm(text) + ' ';
   for (const c of CATS) {
     if (c.t !== tipo) continue;
-    for (const k of c.k) if (new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace('%','\\b')).test(n)) return c.id;
+    for (const k of c.k) if (kwRx(k).test(n)) return c.id;
   }
   return tipo === 'gasto' ? 'otros' : 'otros_in';
 }
@@ -449,7 +461,7 @@ function cleanDesc(p){
   }
   s = s.replace(/\b(hoy|ayer|anteayer|antes de ayer)\b/g, ' ').replace(/\b(el|este|el pasado)\s+(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)\b/g,' ').replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g,' ');
   s = s.replace(/\b(gast[eé]|pagu[eé]|compr[eé]|me cobraron|cobr[eé]|me pagaron|me transfirieron|me depositaron|me pasaron|me mandaron|recib[ií]|vend[ií]|cargu[eé]|puse|sal[ií]|anot[aá]|sum[aá]|me entr[oó]|me entraron)\b/g, ' ');
-  s = s.replace(/\$\s*/g,' ').replace(/\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/g,' ').replace(/\bpesos\b/g,' ');
+  s = s.replace(/\b(dolares|dolar|usd|verdes)\b|u\$s|us\$/g,' ').replace(/\$\s*/g,' ').replace(/\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/g,' ').replace(/\bpesos\b/g,' ');
   s = s.replace(/\s+/g,' ').trim();
   let prev;
   do { prev = s; s = s.replace(/^(en|de|del|el|la|los|las|por|para|un|una|al|a|y|que|con)\s+/,'').replace(/\s+(en|de|del|con|el|la|por|y|a)$/,'').trim(); } while (s !== prev);
@@ -471,7 +483,9 @@ function parseLocal(text){
     const np = norm(p);
     const tipo = INGRESO_RX.test(np) || INGRESO_RX.test(nAll) && parts.length===1 ? 'ingreso' : 'gasto';
     const cat = guessCat(p, tipo);
-    out.push({ id: uid(), tipo, monto: Math.max(...amts), cat,
+    const usd = /\b(dolares|dolar|usd|u\$s|us\$|verdes)\b|u\$s|us\$/.test(np);
+    const mon = usd && CUR!=='USD' ? 'USD' : (!usd && CUR==='USD' && /\bpesos\b/.test(np) ? 'ARS' : undefined);
+    out.push({ id: uid(), tipo, monto: Math.max(...amts), cat, ...(mon ? { mon } : {}),
       cuenta: detectAccount(np) || gAcc || lastAcc(),
       fecha: detectDate(np) || gDate || ymd(today),
       desc: cleanDesc(p) || CAT[cat].n, origen: 'manual' });
@@ -528,7 +542,11 @@ function formHTML(it, pfx){
       <label>Fecha<input id="${pfx}-fecha" type="date" value="${esc(it.fecha)}"></label>
       <label class="wide">Descripción<input id="${pfx}-desc" value="${esc(it.desc)}" maxlength="80"></label>
       <label>Categoría<select id="${pfx}-cat">${opts(CATS.filter(c=>c.t===it.tipo), it.cat, c=>c.n, c=>c.id)}</select></label>
-      <label>Cuenta<select id="${pfx}-cuenta">${opts(ACCOUNTS, it.cuenta)}</select></label>
+      <label>Cuenta<select id="${pfx}-cuenta">${opts(!it.cuenta || ACCOUNTS.includes(it.cuenta) ? ACCOUNTS : [...ACCOUNTS, it.cuenta], it.cuenta)}</select></label>
+      <label>Moneda<select id="${pfx}-mon" data-monsel="${pfx}">${opts([CUR, OTHER_CUR()], it.mon || CUR)}</select></label>
+      ${isOther(it) ? `<p class="muted wide">Opcional: cargá el tipo de cambio del día del pago, o cuánto pagaste en ${CUR}, para sumarlo a tus totales. Si lo dejás vacío queda en ${esc(it.mon)}.</p>
+      <label>Tipo de cambio<input id="${pfx}-tc" inputmode="decimal" data-fx="${pfx}" value="${esc(fmtPlain(it.tc))}" placeholder="Ej: ${CUR==='USD'?'0,0007':'1.450'}"></label>
+      <label>Pagaste en ${CUR}<input id="${pfx}-eq" inputmode="decimal" data-fx="${pfx}" value="${esc(it.tc ? fmtPlain(Math.round(it.monto*it.tc*100)/100) : '')}"></label>` : ''}
     </div>`;
 }
 function readForm(pfx, base){
@@ -539,17 +557,30 @@ function readForm(pfx, base){
   it.fecha = g('fecha').value || it.fecha;
   it.desc = g('desc').value.trim() || CAT[g('cat').value]?.n || '';
   it.cat = g('cat').value; it.cuenta = g('cuenta').value;
+  if (g('mon')) { if (g('mon').value===CUR) { delete it.mon; delete it.tc; } else it.mon = g('mon').value; }
+  if (g('tc')) { const tc = Math.abs(parseNum(g('tc').value)) || 0; if (tc && it.mon) it.tc = tc; else delete it.tc; }
   return it;
 }
 
 /* ---------- Render ---------- */
+const OTHER_CUR = () => CUR==='USD' ? 'ARS' : 'USD';
+const isOther = it => !!it.mon && it.mon !== CUR;
+// Monto en la moneda principal. Un movimiento en otra moneda suma solo si tiene tipo de cambio;
+// si no, se muestra y se suma aparte, en su moneda.
+const toMain = it => !isOther(it) ? it.monto : (it.tc ? it.monto * it.tc : 0);
 function monthTotals(items){
-  let g=0, i=0; const byCat = {}, byAcc = {};
+  let g=0, i=0; const byCat = {}, byAcc = {}, other = {};
   for (const it of items) {
-    if (it.tipo==='gasto') { g += it.monto; byCat[it.cat] = (byCat[it.cat]||0) + it.monto; } else i += it.monto;
-    byAcc[it.cuenta] = (byAcc[it.cuenta]||0) + (it.tipo==='gasto' ? -it.monto : it.monto);
+    if (isOther(it) && !it.tc) {
+      const o = other[it.mon] ||= { g: 0, i: 0 };
+      if (it.tipo==='gasto') o.g += it.monto; else o.i += it.monto;
+      continue;
+    }
+    const v = toMain(it);
+    if (it.tipo==='gasto') { g += v; byCat[it.cat] = (byCat[it.cat]||0) + v; } else i += v;
+    byAcc[it.cuenta] = (byAcc[it.cuenta]||0) + (it.tipo==='gasto' ? -v : v);
   }
-  return {g, i, byCat, byAcc};
+  return {g, i, byCat, byAcc, other};
 }
 function render(){
   // Quien llega por el link de un grupo entra directo al grupo, con una configuración básica que después puede cambiar.
@@ -572,6 +603,8 @@ function render(){
   const t = monthTotals(items);
   $('#sumGastoLbl').textContent = `Gastos de ${mName}`;
   $('#sumGasto').textContent = fmt(t.g);
+  const oth = Object.entries(t.other).map(([m,o]) => [o.g ? `gastos ${fmt(o.g,false,m)}` : '', o.i ? `ingresos ${fmt(o.i,false,m)}` : ''].filter(Boolean).join(' · ')).filter(Boolean).join(' — ');
+  $('#sumOther').hidden = !oth; $('#sumOther').textContent = oth ? 'Además, en dólares sin convertir: ' + oth : '';
   $('#sumIng').textContent = fmt(t.i);
   $('#sumBal').textContent = fmt(t.i - t.g, true);
   $('#sumBal').style.color = t.i - t.g < 0 ? 'var(--gasto)' : t.i - t.g > 0 ? 'var(--ingreso)' : '';
@@ -648,13 +681,13 @@ function renderMovs(items, t){
   const groups = {};
   for (const it of list) (groups[it.fecha] ||= []).push(it);
   for (const [f, arr] of Object.entries(groups)) {
-    const tot = arr.reduce((s,x)=>s + (x.tipo==='gasto'?-x.monto:x.monto), 0);
+    const tot = arr.reduce((s,x)=>s + (x.tipo==='gasto'?-toMain(x):toMain(x)), 0);
     h += `<div class="day"><h3><span>${esc(dayLabel(f))}</span><span class="num">${fmt(tot,true)}</span></h3>`;
     for (const it of arr) {
       h += `<button type="button" class="row" data-action="edit" data-id="${esc(it.id)}" aria-expanded="${state.editId===it.id}">
         <span class="dot" style="background:${catColor(it.cat)}"></span>
         <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.pend?'<span class="badge warn">Revisar</span>':''}</span></span>
-        <span class="amt num ${it.tipo==='gasto'?'g':'i'}">${it.tipo==='gasto'?'−':'+'}${fmt(it.monto)}</span></button>`;
+        <span class="amt num ${it.tipo==='gasto'?'g':'i'}">${it.tipo==='gasto'?'−':'+'}${fmt(it.monto,false,it.mon)}${isOther(it)&&it.tc?`<small class="eq">≈ ${fmt(toMain(it))}</small>`:''}</span></button>`;
       if (state.editId===it.id) {
         const buf = state.editBuf || it;
         h += `<div class="form">${formHTML(buf,'e')}
@@ -752,10 +785,10 @@ function renderCats(items, t){
   // Categorías del mes elegido, comparadas con el promedio de los meses anteriores del período.
   const prevMonths = data.slice(0,-1).map(d=>d.ym).filter(ym=>monthItems(ym).length);
   const catAvg = {};
-  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto') catAvg[it.cat] = (catAvg[it.cat]||0) + it.monto/prevMonths.length;
+  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto') catAvg[it.cat] = (catAvg[it.cat]||0) + toMain(it)/prevMonths.length;
   const block = (tipo, title) => {
     const sums = {}; let tot = 0;
-    for (const it of items) if (it.tipo===tipo) { sums[it.cat] = (sums[it.cat]||0)+it.monto; tot += it.monto; }
+    for (const it of items) if (it.tipo===tipo) { const v = toMain(it); sums[it.cat] = (sums[it.cat]||0)+v; tot += v; }
     const rows = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
     if (!rows.length) return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><p class="filter-note">Sin ${title.toLowerCase()} este mes.</p>`;
     return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><div class="catlist">` + rows.map(([c,v])=>{
@@ -820,6 +853,7 @@ function renderAjustes(){
       ${c.id==='otros'||c.id==='otros_in' ? '<span></span>' : `<button type="button" class="btn small danger" data-action="delcat" data-id="${esc(c.id)}">Quitar</button>`}</div>`).join('');
   $('#tab-ajustes').innerHTML = `
     <h2>Moneda</h2>
+    <p class="muted">Moneda principal: la de tus totales y gráficos.</p>
     <select id="setCur" aria-label="Moneda">${CURRENCIES.map(([c,n])=>`<option value="${c}"${c===CUR?' selected':''}>${esc(n)} (${c})</option>`).join('')}</select>
     <h2>Cuentas</h2>
     <p class="muted">Los "otros nombres" sirven para reconocer la cuenta cuando hablás: por ejemplo "mp" para Mercado Pago.</p>
@@ -850,8 +884,8 @@ function renderAjustes(){
 function toCSV(){
   const q = v => { const s = String(v??''); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
   const rows = allItems().sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  return '﻿' + [['fecha','tipo','monto','moneda','categoria','cuenta','descripcion','origen'].join(';'),
-    ...rows.map(x=>[x.fecha, x.tipo, String(x.monto).replace('.',','), CUR, CAT[x.cat]?.n||x.cat, x.cuenta, x.desc, x.origen].map(q).join(';'))].join('\n');
+  return '﻿' + [['fecha','tipo','monto','moneda','tipo_de_cambio','monto_en_' + CUR.toLowerCase(),'categoria','cuenta','descripcion','origen'].join(';'),
+    ...rows.map(x=>[x.fecha, x.tipo, String(x.monto).replace('.',','), x.mon||CUR, x.tc ? String(x.tc).replace('.',',') : '', isOther(x)&&!x.tc ? '' : String(Math.round(toMain(x)*100)/100).replace('.',','), CAT[x.cat]?.n||x.cat, x.cuenta, x.desc, x.origen].map(q).join(';'))].join('\n');
 }
 async function exportCSV(){
   const csv = toCSV();
@@ -1171,14 +1205,15 @@ function processInbox(key, list){
     const fecha = /^\d{4}-\d{2}-\d{2}$/.test(m.fecha||'') ? m.fecha : ymd(today);
     const desc = String(m.desc||'').trim().slice(0,80) || (tipo==='gasto' ? 'Gasto' : 'Ingreso');
     // Si ya lo anotaste a mano o por voz, se marca como conciliado en vez de duplicarlo.
-    const mi = manual.findIndex(x=>x.tipo===tipo && Math.abs(x.monto-monto)<0.01 && Math.abs((toDate(x.fecha)-toDate(fecha))/864e5)<=2);
+    const mon = /^[A-Z]{3}$/.test(m.mon||'') && m.mon!==CUR ? m.mon : undefined;
+    const mi = manual.findIndex(x=>x.tipo===tipo && (x.mon||CUR)===(mon||CUR) && Math.abs(x.monto-monto)<0.01 && Math.abs((toDate(x.fecha)-toDate(fecha))/864e5)<=2);
     if (mi>-1) { upd.push({ ...clone(manual[mi]), conc: true, ext: ref }); manual.splice(mi,1); continue; }
     const cuenta = detectAccount(norm(m.source||'')) || lastAcc();
-    add.push({ id: ref, ext: ref, tipo, monto, cat: guessCat(desc, tipo), cuenta, fecha, desc, origen: 'auto', pend: true, ts: Date.now() });
+    add.push({ id: ref, ext: ref, tipo, monto, ...(mon ? { mon } : {}), cat: guessCat(desc, tipo), cuenta, fecha, desc, origen: 'auto', pend: true, ts: Date.now() });
   }
   if (add.length || upd.length) putItems([...add, ...upd]);
   for (const m of list) store.db.doc(`inbox/${key}/items/${m.id}`).delete().catch(()=>{});
-  if (add.length) toast(add.length===1 ? `Se anotó solo: ${fmt(add[0].monto)} · ${add[0].desc}` : `Se anotaron solos ${add.length} movimientos. Revisalos en Movimientos.`);
+  if (add.length) toast(add.length===1 ? `Se anotó solo: ${fmt(add[0].monto,false,add[0].mon)} · ${add[0].desc}` : `Se anotaron solos ${add.length} movimientos. Revisalos en Movimientos.`);
   else if (upd.length) toast('Un aviso coincidió con un gasto que ya habías anotado: quedó conciliado.');
 }
 function renderAutoSection(){
@@ -1266,12 +1301,15 @@ function interpretar(msg) {
   const tipo = INGRESO.test(asunto) ? 'ingreso' : GASTO.test(asunto) ? 'gasto'
     : INGRESO.test(inicio) ? 'ingreso' : GASTO.test(inicio) ? 'gasto' : null;
   if (!tipo) return null;
-  const m = (asunto + ' ' + cuerpo).match(/\\$\\s?(\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?|\\d+(?:,\\d{1,2})?)/);
+  const MONTO = /(U\\$S|US\\$|USD|ARS|\\$)\\s?(\\d{1,3}(?:\\.\\d{3})*(?:,\\d{1,2})?|\\d+(?:,\\d{1,2})?)/i;
+  const importe = cuerpo.match(/(?:Importe|Monto|Total)[:\\s]+(.{0,30})/i);
+  const m = (importe && importe[1].match(MONTO)) || (asunto + ' ' + cuerpo).match(MONTO);
   if (!m) return null;
-  const monto = Number(m[1].replace(/\\./g, '').replace(',', '.'));
+  const moneda = /U\\$S|US\\$|USD/i.test(m[1]) ? 'USD' : 'ARS';
+  const monto = Number(m[2].replace(/\\./g, '').replace(',', '.'));
   if (!(monto > 0)) return null;
   return {
-    tipo, monto, cuenta: fuente.cuenta, desc: descripcion(asunto, cuerpo),
+    tipo, monto, moneda, cuenta: fuente.cuenta, desc: descripcion(asunto, cuerpo),
     fecha: Utilities.formatDate(msg.getDate(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
   };
 }
@@ -1301,7 +1339,7 @@ function enviar(id, mov) {
   const cuerpo = { fields: {
     tipo: { stringValue: mov.tipo }, amount: { doubleValue: mov.monto },
     desc: { stringValue: mov.desc.slice(0, 120) }, source: { stringValue: mov.cuenta },
-    fecha: { stringValue: mov.fecha }, ts: { integerValue: String(Date.now()) },
+    fecha: { stringValue: mov.fecha }, mon: { stringValue: mov.moneda }, ts: { integerValue: String(Date.now()) },
   } };
   const r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(cuerpo), muteHttpExceptions: true });
   const c = r.getResponseCode();
@@ -1594,6 +1632,13 @@ document.addEventListener('change', e => {
   const t = e.target, s = state.imp;
   if (t.id==='setupCur') { state.setup.cur = t.value; return; }
   if (t.id==='setCur') { cfgEdit(c => c.currency = t.value); render(); return; }
+  if (t.dataset && t.dataset.monsel) {
+    // Al cambiar la moneda se redibuja el formulario para mostrar (u ocultar) el tipo de cambio.
+    const pfx = t.dataset.monsel;
+    if (pfx==='e') { state.editBuf = readForm('e', state.editBuf); render(); }
+    else { const i = +pfx.slice(1); state.drafts[i] = readForm(pfx, state.drafts[i]); renderComposer(); }
+    return;
+  }
   if (t.dataset.cfg) {
     const list = v => v.split(',').map(x=>norm(x).trim()).filter(Boolean);
     cfgEdit(c => {
@@ -1612,6 +1657,16 @@ document.addEventListener('change', e => {
   else if (t.id==='mInvert') { s.invert = t.checked; render(); }
 });
 $('#frase').addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); anotar(); } });
+// Tipo de cambio y monto pagado se completan entre sí: cargás uno y se calcula el otro.
+document.addEventListener('input', e => {
+  const pfx = e.target.dataset && e.target.dataset.fx; if (!pfx) return;
+  const g = k => document.getElementById(`${pfx}-${k}`);
+  const monto = Math.abs(parseNum(g('monto').value)) || 0, v = Math.abs(parseNum(e.target.value)) || 0;
+  if (!monto) return;
+  const r = n => (Math.round(n*100)/100).toLocaleString('es-AR', {maximumFractionDigits:2});
+  if (e.target.id.endsWith('-tc')) g('eq').value = v ? r(monto * v) : '';
+  else g('tc').value = v ? (v / monto).toLocaleString('es-AR', {maximumFractionDigits:6}) : '';
+});
 
 /* ---------- Arranque ---------- */
 function setStatus(msg){ const s = $('#status'); s.textContent = msg || ''; s.hidden = !msg; }
