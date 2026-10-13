@@ -1229,8 +1229,8 @@ const FUENTES = [
 ${fuentes.map(([c,b])=>`  { cuenta: ${JSON.stringify(c)}, buscar: ${JSON.stringify(b)} },`).join('\n')}
 ];
 
-const GASTO = /(pagaste|tu pago|pago aprobado|compraste|tu compra|transferiste|enviaste|consumo|compra con|d[eé]bito|realizaste un pago|extrajiste|extracci[oó]n)/i;
-const INGRESO = /(recibiste|te (enviaron|transfirieron|pagaron|lleg[oó])|cobraste|se acredit[oó]|acreditamos|ingres[oó] dinero)/i;
+const GASTO = /(pagaste|tu pago|pago aprobado|compraste|tu compra|transferiste|enviaste|consumo|compra con|d[eé]bito|realizaste (?:un|una|el|la siguiente) (?:pago|compra|transferencia|extracci[oó]n|consumo|d[eé]bito)|extrajiste|extracci[oó]n)/i;
+const INGRESO = /(recibiste|te (enviaron|transfirieron|pagaron|lleg[oó])|cobraste|se acredit[oó]|acreditamos|transferencia recibida|ingres[oó] dinero)/i;
 const IGNORAR = /(promo|descuento|beneficio|sin inter[eé]s|invert|pr[eé]stamo|oferta|resumen|vence|vencimiento|c[oó]digo|verific|inicio de sesi[oó]n|nuevo dispositivo|encuesta)/i;
 
 function instalar() {
@@ -1277,6 +1277,12 @@ function interpretar(msg) {
 }
 
 function descripcion(asunto, cuerpo) {
+  // Transferencias (formato de BBVA y otros bancos): el nombre viene en una tabla.
+  const corte = /\\s+(?:\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}|Fecha|CBU|CVU|CUIT|CUIL|Cuenta|Alias|Banco|Importe|Monto|Concepto|Referencia|\\$)/.source;
+  const dest = cuerpo.match(new RegExp(/Destinatario\\s+(?:Fecha y hora\\s+)?(.{3,60}?)/.source + corte, 'i'));
+  if (dest) return 'Transferencia a ' + dest[1].trim();
+  const orig = cuerpo.match(new RegExp(/(?:Ordenante|Originante|Remitente)\\s+(?:Fecha y hora\\s+)?(.{3,60}?)/.source + corte, 'i'));
+  if (orig) return 'Transferencia de ' + orig[1].trim();
   const patrones = [
     /(?:pagaste|tu pago|compraste|tu compra|consumo|compra)\\s+(?:a|en|de)\\s+([^.,$\\n]{2,40})/i,
     /(?:transferiste|enviaste)[^$]*?\\s+a\\s+([^.,$\\n]{2,40})/i,
