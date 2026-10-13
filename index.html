@@ -529,6 +529,11 @@ function monthTotals(items){
   return {g, i, byCat, byAcc};
 }
 function render(){
+  // Quien llega por el link de un grupo entra directo al grupo, con una configuración básica que después puede cambiar.
+  if (store.mode !== 'loading' && !config() && /^#g[a-z0-9]{6,}$/i.test(location.hash)) {
+    saveConfig({ v: 1, currency: CUR, accounts: PRESET_ACCOUNTS.filter(a=>a.name==='Mercado Pago'||a.name==='Efectivo').map(clone), cats: clone(DEFAULT_CATS), importProfiles: {} });
+    state.tab = 'grupos';
+  }
   applyConfig(config());
   const needSetup = store.mode !== 'loading' && !config();
   $('#setup').hidden = !needSetup; $('#main').hidden = needSetup;
