@@ -14,4 +14,4 @@ self.BOLSILLO_FIREBASE = {
 
 // Clave para notificaciones (opcional). La sacás de: Configuración del proyecto →
 // Cloud Messaging → Certificados push web → Generar par de claves. Es pública.
-self.BOLSILLO_VAPID = null;
+self.BOLSILLO_VAPID = "BHRMyF4Psfe0OSJqVoI7UMp6Ev6d1azy4fu4RAZXVd1iqnQs_SMrOMk6H4yJxQJvItg40HwPnwcIVVjMhyQ9GtA";
