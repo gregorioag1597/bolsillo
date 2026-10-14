@@ -487,7 +487,7 @@ function cleanDesc(p){
   }
   s = s.replace(/\b(hoy|ayer|anteayer|antes de ayer)\b/g, ' ').replace(/\b(el|este|el pasado)\s+(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)\b/g,' ').replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g,' ');
   s = s.replace(/\b(gast[eé]|pagu[eé]|compr[eé]|me cobraron|cobr[eé]|me pagaron|me transfirieron|me depositaron|me pasaron|me mandaron|recib[ií]|vend[ií]|cargu[eé]|puse|sal[ií]|anot[aá]|sum[aá]|me entr[oó]|me entraron)\b/g, ' ');
-  s = s.replace(/\b(dolares|dolar|usd|verdes)\b|u\$s|us\$/g,' ').replace(/\$\s*/g,' ').replace(/\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/g,' ').replace(/\bpesos\b/g,' ');
+  s = s.replace(/\b(dolares|dolar|usd|verdes)\b|u\$s|us\$/g,' ').replace(/\$\s*/g,' ').replace(/\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:[.,]\d{1,2})?/g,' ').replace(/\bpesos\b/g,' ');
   s = s.replace(/\s+/g,' ').trim();
   let prev;
   do { prev = s; s = s.replace(/^(en|de|del|el|la|los|las|por|para|un|una|al|a|y|que|con)\s+/,'').replace(/\s+(en|de|del|con|el|la|por|y|a)$/,'').trim(); } while (s !== prev);
@@ -497,7 +497,7 @@ function parseLocal(text){
   const low = normAmounts(text.toLowerCase());
   const nAll = norm(low);
   const gAcc = detectAccount(nAll), gDate = detectDate(nAll);
-  const AMT = /\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/g;
+  const AMT = /\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:[.,]\d{1,2})?/g;
   const hasAmt = p => (p.replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g,'').match(AMT)||[]).length>0;
   const raw = low.split(/\s*(?:,(?!\d)|;|\s+y\s+|\s+tambi[eé]n\s+|\s+m[aá]s\s+)\s*/);
   const parts = [];
@@ -874,10 +874,10 @@ function approvalTray(){
     <div class="tray-head"><h2>Para aprobar</h2>${list.length>1?`<button type="button" class="btn small" data-action="approveall">Aprobar todos (${list.length})</button>`:''}</div>
     ${shown.map(it=>`<div class="approve">
       <p class="q">${it.interno?'¿Aprobás este movimiento entre tus cuentas?':it.tipo==='gasto'?'¿Aprobás este gasto?':'¿Aprobás este ingreso?'}</p>
-      <p class="big-amt num">${fmt(it.monto,false,it.mon)}</p>
+      ${it.sinMonto ? '<p class="big-amt">Sin monto</p><p class="muted">No encontré el monto en lo que dictaste. Tocá Corregir para completarlo.</p>' : `<p class="big-amt num">${fmt(it.monto,false,it.mon)}</p>`}
       <p class="muted">${esc(it.desc)} · ${esc(it.cuenta)} · ${esc(dayLabel(it.fecha))} · ${esc(CAT[it.cat]?.n||'')}</p>
-      <div class="btn-row"><button type="button" class="btn primary" data-action="approve" data-id="${esc(it.id)}">Confirmar</button>
-        <button type="button" class="btn" data-action="approveedit" data-id="${esc(it.id)}">Editar</button>
+      <div class="btn-row">${it.sinMonto ? '' : `<button type="button" class="btn primary" data-action="approve" data-id="${esc(it.id)}">Confirmar</button>`}
+        <button type="button" class="btn${it.sinMonto?' primary':''}" data-action="approveedit" data-id="${esc(it.id)}">${it.sinMonto?'Corregir':'Editar'}</button>
         <button type="button" class="btn danger" data-action="reject" data-id="${esc(it.id)}">${state.confirmDel==='rej-'+it.id?'Tocá de nuevo para descartar':'Descartar'}</button></div>
     </div>`).join('')}
     ${list.length>shown.length?`<p class="muted">Y ${list.length-shown.length} más.</p>`:''}
@@ -1300,7 +1300,9 @@ function processInbox(key, list){
     if (seen.has(ref)) continue;
     if (m.text) {
       // Texto dictado por Siri: se interpreta como una frase escrita en la app.
-      parseLocal(String(m.text)).forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'siri', ts: Date.now() }));
+      const parsed = parseLocal(String(m.text));
+      parsed.forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'siri', ts: Date.now() }));
+      if (!parsed.length) add.push({ id: ref, ext: ref, tipo: 'gasto', monto: 0, cat: 'otros', cuenta: lastAcc(), fecha: ymd(today), desc: String(m.text).slice(0, 80), origen: 'siri', pend: true, sinMonto: true, ts: Date.now() });
       continue;
     }
     const tipo = /ingreso$/.test(m.tipo||'') ? 'ingreso' : 'gasto', monto = Math.abs(Number(m.amount)) || 0;
@@ -1772,7 +1774,7 @@ document.addEventListener('click', e => {
   else if (a==='saveedit') {
     const orig = monthItems(state.ym).find(x=>x.id===state.editId); if (!orig) return;
     const it = readForm('e', state.editBuf);
-    delete it.pend;
+    delete it.pend; delete it.sinMonto;
     if (!it.monto) { toast('El monto no puede quedar vacío.', true); return; }
     if (it.fecha.slice(0,7) !== orig.fecha.slice(0,7)) removeItem(orig.id, orig.fecha);
     const learn = $('#e-learn')?.checked && learnKey(it.desc);
@@ -1833,7 +1835,7 @@ document.addEventListener('click', e => {
   else if (a==='inboxreset') { if (state.confirmDel!=='inbox') { state.confirmDel = 'inbox'; render(); return; } state.confirmDel = null; if (store.inboxUnsub) { store.inboxUnsub(); store.inboxUnsub = null; } cfgEdit(c => c.inboxKey = randomKey(24)); render(); toast('Clave nueva generada. Actualizá el script de Gmail y el atajo de Siri.'); }
   else if (a==='copyscript') copyText(gmailScript(), 'Código copiado. Pegalo en Google Apps Script.');
   else if (a==='approve' || a==='approveall') {
-    const ids = a==='approve' ? [b.dataset.id] : pendingItems().map(x=>x.id);
+    const ids = a==='approve' ? [b.dataset.id] : pendingItems().filter(x=>!x.sinMonto).map(x=>x.id);
     putItems(pendingItems().filter(x=>ids.includes(x.id)).map(x=>{ const y = clone(x); delete y.pend; return y; }));
     render(); toast(ids.length>1 ? 'Movimientos aprobados.' : 'Aprobado.');
   }
