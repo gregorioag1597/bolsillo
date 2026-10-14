@@ -156,6 +156,7 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 .amt{font-weight:600;white-space:nowrap}
 .amt.g{color:var(--ink)}
 .amt.i{color:var(--ingreso)}
+.amt.n{color:var(--muted)}
 .badge{font-size:11px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;margin-left:4px}
 
 .empty{text-align:center;color:var(--muted);padding:28px 12px;display:flex;flex-direction:column;gap:6px;align-items:center}
@@ -435,6 +436,22 @@ function normAmounts(t){
 }
 const rxEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const accTerms = a => [...new Set([norm(a.name), ...(a.alias||[]).map(norm)])].filter(Boolean);
+// ¿El nombre de la otra parte de una transferencia sos vos? Alcanza con dos palabras de tu nombre
+// ("Gregorio Aguinaga" coincide con "Aguinaga Estornell Gregorio").
+const nameWords = t => norm(t).split(/[^a-z]+/).filter(w=>w.length>2);
+function isOwnName(name){
+  const t = nameWords(name); if (t.length < 2) return false;
+  return (config()?.own?.names||[]).some(n => { const o = nameWords(n); return o.length >= 2 && t.filter(w=>o.includes(w)).length >= 2; });
+}
+// Cuentas mencionadas en una frase, en el orden en que aparecen.
+function accountsIn(n){
+  const found = [];
+  for (const a of ACC) for (const t of accTerms(a)) {
+    const m = new RegExp('(^|[^a-z0-9])' + rxEsc(t) + '($|[^a-z0-9])').exec(n);
+    if (m) { found.push({ name: a.name, pos: m.index }); break; }
+  }
+  return found.sort((x,y)=>x.pos-y.pos).map(x=>x.name);
+}
 function detectAccount(n){
   for (const a of ACC) for (const t of accTerms(a)) if (new RegExp('(^|[^a-z0-9])' + rxEsc(t) + '($|[^a-z0-9])').test(n)) return a.name;
   return null;
@@ -497,6 +514,13 @@ function parseLocal(text){
     const np = norm(p);
     const tipo = INGRESO_RX.test(np) || INGRESO_RX.test(nAll) && parts.length===1 ? 'ingreso' : 'gasto';
     const cat = guessCat(p, tipo);
+    const accs = accountsIn(np);
+    if (accs.length >= 2 && /\b(pase|pasar|paso|transferi|transferir|movi|mover|mande|envie|deposite)\b/.test(np)) {
+      const base = { monto: Math.max(...amts), fecha: detectDate(np) || gDate || ymd(today), origen: 'manual', interno: true };
+      out.push({ ...base, id: uid(), tipo: 'gasto', cat: 'transfer', cuenta: accs[0], desc: 'A ' + accs[1] });
+      out.push({ ...base, id: uid(), tipo: 'ingreso', cat: 'transfer_in', cuenta: accs[1], desc: 'Desde ' + accs[0] });
+      continue;
+    }
     const usd = /\b(dolares|dolar|usd|u\$s|us\$|verdes)\b|u\$s|us\$/.test(np);
     const mon = usd && CUR!=='USD' ? 'USD' : (!usd && CUR==='USD' && /\bpesos\b/.test(np) ? 'ARS' : undefined);
     out.push({ id: uid(), tipo, monto: Math.max(...amts), cat, ...(mon ? { mon } : {}),
@@ -557,6 +581,7 @@ function formHTML(it, pfx){
       <label class="wide">Descripción<input id="${pfx}-desc" value="${esc(it.desc)}" maxlength="80"></label>
       <label>Categoría<select id="${pfx}-cat">${opts(CATS.filter(c=>c.t===it.tipo), it.cat, c=>c.n, c=>c.id)}</select></label>
       <label>Cuenta<select id="${pfx}-cuenta">${opts(!it.cuenta || ACCOUNTS.includes(it.cuenta) ? ACCOUNTS : [...ACCOUNTS, it.cuenta], it.cuenta)}</select></label>
+      <label class="check wide"><input type="checkbox" id="${pfx}-int" ${it.interno?'checked':''}><span>Entre mis cuentas (no cuenta como gasto ni ingreso)</span></label>
       <label>Moneda<select id="${pfx}-mon" data-monsel="${pfx}">${opts([CUR, OTHER_CUR()], it.mon || CUR)}</select></label>
       ${isOther(it) ? `<p class="muted wide">Opcional: cargá el tipo de cambio del día del pago, o cuánto pagaste en ${CUR}, para sumarlo a tus totales. Si lo dejás vacío queda en ${esc(it.mon)}.</p>
       <label>Tipo de cambio<input id="${pfx}-tc" inputmode="decimal" data-fx="${pfx}" value="${esc(fmtPlain(it.tc))}" placeholder="Ej: ${CUR==='USD'?'0,0007':'1.450'}"></label>
@@ -572,6 +597,7 @@ function readForm(pfx, base){
   it.desc = g('desc').value.trim() || CAT[g('cat').value]?.n || '';
   it.cat = g('cat').value; it.cuenta = g('cuenta').value;
   if (g('mon')) { if (g('mon').value===CUR) { delete it.mon; delete it.tc; } else it.mon = g('mon').value; }
+  if (g('int')) { if (g('int').checked) it.interno = true; else delete it.interno; }
   if (g('tc')) { const tc = Math.abs(parseNum(g('tc').value)) || 0; if (tc && it.mon) it.tc = tc; else delete it.tc; }
   return it;
 }
@@ -585,6 +611,10 @@ const toMain = it => !isOther(it) ? it.monto : (it.tc ? it.monto * it.tc : 0);
 function monthTotals(items){
   let g=0, i=0; const byCat = {}, byAcc = {}, other = {};
   for (const it of items) {
+    if (it.interno) {
+      if (!(isOther(it) && !it.tc)) { const v = toMain(it); byAcc[it.cuenta] = (byAcc[it.cuenta]||0) + (it.tipo==='gasto' ? -v : v); }
+      continue;
+    }
     if (isOther(it) && !it.tc) {
       const o = other[it.mon] ||= { g: 0, i: 0 };
       if (it.tipo==='gasto') o.g += it.monto; else o.i += it.monto;
@@ -695,13 +725,13 @@ function renderMovs(items, t){
   const groups = {};
   for (const it of list) (groups[it.fecha] ||= []).push(it);
   for (const [f, arr] of Object.entries(groups)) {
-    const tot = arr.reduce((s,x)=>s + (x.tipo==='gasto'?-toMain(x):toMain(x)), 0);
+    const tot = arr.reduce((s,x)=>s + (x.interno ? 0 : x.tipo==='gasto'?-toMain(x):toMain(x)), 0);
     h += `<div class="day"><h3><span>${esc(dayLabel(f))}</span><span class="num">${fmt(tot,true)}</span></h3>`;
     for (const it of arr) {
       h += `<button type="button" class="row" data-action="edit" data-id="${esc(it.id)}" aria-expanded="${state.editId===it.id}">
         <span class="dot" style="background:${catColor(it.cat)}"></span>
-        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.pend?'<span class="badge warn">Revisar</span>':''}</span></span>
-        <span class="amt num ${it.tipo==='gasto'?'g':'i'}">${it.tipo==='gasto'?'−':'+'}${fmt(it.monto,false,it.mon)}${isOther(it)&&it.tc?`<small class="eq">≈ ${fmt(toMain(it))}</small>`:''}</span></button>`;
+        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.interno?'<span class="badge">Entre mis cuentas</span>':''}${it.pend?'<span class="badge warn">Revisar</span>':''}</span></span>
+        <span class="amt num ${it.interno?'n':it.tipo==='gasto'?'g':'i'}">${it.interno?(it.tipo==='gasto'?'⇄ −':'⇄ +'):it.tipo==='gasto'?'−':'+'}${fmt(it.monto,false,it.mon)}${isOther(it)&&it.tc?`<small class="eq">≈ ${fmt(toMain(it))}</small>`:''}</span></button>`;
       if (state.editId===it.id) {
         const buf = state.editBuf || it;
         h += `<div class="form">${formHTML(buf,'e')}
@@ -799,10 +829,10 @@ function renderCats(items, t){
   // Categorías del mes elegido, comparadas con el promedio de los meses anteriores del período.
   const prevMonths = data.slice(0,-1).map(d=>d.ym).filter(ym=>monthItems(ym).length);
   const catAvg = {};
-  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto') catAvg[it.cat] = (catAvg[it.cat]||0) + toMain(it)/prevMonths.length;
+  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto' && !it.interno) catAvg[it.cat] = (catAvg[it.cat]||0) + toMain(it)/prevMonths.length;
   const block = (tipo, title) => {
     const sums = {}; let tot = 0;
-    for (const it of items) if (it.tipo===tipo) { const v = toMain(it); sums[it.cat] = (sums[it.cat]||0)+v; tot += v; }
+    for (const it of items) if (it.tipo===tipo && !it.interno) { const v = toMain(it); sums[it.cat] = (sums[it.cat]||0)+v; tot += v; }
     const rows = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
     if (!rows.length) return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><p class="filter-note">Sin ${title.toLowerCase()} este mes.</p>`;
     return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><div class="catlist">` + rows.map(([c,v])=>{
@@ -876,6 +906,11 @@ function renderAjustes(){
       <button type="button" class="btn small danger" data-action="delacc" data-i="${i}" ${used.has(a.name)||ACC.length<2?'disabled title="Tiene movimientos cargados"':''}>Quitar</button></div>`).join('')}</div>
     ${missing.length?`<div class="chips">${missing.map(p=>`<button type="button" class="chip" data-action="addacc" data-v="${esc(p.name)}">+ ${esc(p.name)}</button>`).join('')}</div>`:''}
     <div class="inline"><input id="newAcc" placeholder="Otra cuenta" maxlength="30" aria-label="Nombre de la cuenta nueva"><button type="button" class="btn" data-action="addacc">Agregar cuenta</button></div>
+    <h2>Transferencias entre tus cuentas</h2>
+    <p class="muted">Si te mandás plata de una cuenta tuya a otra, no es un gasto. Para reconocerlo, Bolsillo compara a quién le transferiste (o quién te mandó) con estos datos.</p>
+    <label class="field">Tu nombre como figura en los bancos<input id="ownNames" data-cfg="ownNames" value="${esc((cfg.own?.names||[]).join(', '))}" placeholder="Ej: Juan Pérez" autocomplete="name"></label>
+    <label class="field">CBU, CVU o alias de tus cuentas, separados por coma (opcional)<input id="ownIds" data-cfg="ownIds" value="${esc((cfg.own?.ids||[]).join(', '))}" placeholder="Ej: 0070..., juan.perez.mp"></label>
+    ${cfg.inboxKey ? '<p class="muted">Si usás el script de Gmail, después de cambiar estos datos volvé a copiarlo.</p>' : ''}
     <h2>Categorías de gasto</h2>
     <p class="muted">Cuando una descripción contiene una palabra clave, el movimiento va a esa categoría.</p>
     <div>${catRows('gasto')}</div>
@@ -1214,7 +1249,7 @@ function processInbox(key, list){
       parseLocal(String(m.text)).forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'auto', pend: true, ts: Date.now() }));
       continue;
     }
-    const tipo = m.tipo==='ingreso' ? 'ingreso' : 'gasto', monto = Math.abs(Number(m.amount)) || 0;
+    const tipo = /ingreso$/.test(m.tipo||'') ? 'ingreso' : 'gasto', monto = Math.abs(Number(m.amount)) || 0;
     if (!monto) continue;
     const fecha = /^\d{4}-\d{2}-\d{2}$/.test(m.fecha||'') ? m.fecha : ymd(today);
     const desc = String(m.desc||'').trim().slice(0,80) || (tipo==='gasto' ? 'Gasto' : 'Ingreso');
@@ -1223,7 +1258,10 @@ function processInbox(key, list){
     const mi = manual.findIndex(x=>x.tipo===tipo && (x.mon||CUR)===(mon||CUR) && Math.abs(x.monto-monto)<0.01 && Math.abs((toDate(x.fecha)-toDate(fecha))/864e5)<=2);
     if (mi>-1) { upd.push({ ...clone(manual[mi]), conc: true, ext: ref }); manual.splice(mi,1); continue; }
     const cuenta = detectAccount(norm(m.source||'')) || lastAcc();
-    add.push({ id: ref, ext: ref, tipo, monto, ...(mon ? { mon } : {}), cat: guessCat(desc, tipo), cuenta, fecha, desc, origen: 'auto', pend: true, ts: Date.now() });
+    // Transferencia a (o de) una cuenta tuya: la marca el script, o se reconoce acá por tu nombre.
+    const otra = desc.match(/^Transferencia (?:a|de) (.+)$/i);
+    const interno = /^interno-/.test(m.tipo||'') || (!!otra && isOwnName(otra[1]));
+    add.push({ id: ref, ext: ref, tipo, monto, ...(mon ? { mon } : {}), ...(interno ? { interno: true } : {}), cat: interno ? (tipo==='gasto' ? 'transfer' : 'transfer_in') : guessCat(desc, tipo), cuenta, fecha, desc, origen: 'auto', pend: true, ts: Date.now() });
   }
   if (add.length || upd.length) putItems([...add, ...upd]);
   for (const m of list) store.db.doc(`inbox/${key}/items/${m.id}`).delete().catch(()=>{});
@@ -1272,6 +1310,9 @@ function gmailScript(){
  * No compartas este código: incluye la clave de tu bandeja.
  */
 const BOLSILLO = { proyecto: '${f.projectId}', apiKey: '${f.apiKey}', clave: '${config()?.inboxKey}' };
+
+// Tus datos, para reconocer transferencias entre tus cuentas (se cargan en Ajustes de Bolsillo).
+const MIOS = { nombres: ${JSON.stringify(config()?.own?.names||[])}, ids: ${JSON.stringify(config()?.own?.ids||[])} };
 
 // Remitentes que se revisan y a qué cuenta corresponden. Podés agregar o sacar.
 const FUENTES = [
@@ -1322,10 +1363,27 @@ function interpretar(msg) {
   const moneda = /U\\$S|US\\$|USD/i.test(m[1]) ? 'USD' : 'ARS';
   const monto = Number(m[2].replace(/\\./g, '').replace(',', '.'));
   if (!(monto > 0)) return null;
+  const desc = descripcion(asunto, cuerpo);
   return {
-    tipo, monto, moneda, cuenta: fuente.cuenta, desc: descripcion(asunto, cuerpo),
+    tipo: esPropia(desc, cuerpo) ? 'interno-' + tipo : tipo, monto, moneda, cuenta: fuente.cuenta, desc,
     fecha: Utilities.formatDate(msg.getDate(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
   };
+}
+
+function normalizar(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, ''); }
+const palabras = t => normalizar(t).split(/[^a-z]+/).filter(w => w.length > 2);
+
+// ¿La transferencia es a (o desde) una cuenta tuya? Se mira la otra parte, no el saludo del mail.
+function esPropia(desc, cuerpo) {
+  const otra = desc.match(/^Transferencia (?:a|de) (.+)$/i);
+  const suyas = palabras(otra ? otra[1] : desc);
+  for (const n of MIOS.nombres) {
+    const mias = palabras(n);
+    if (mias.length >= 2 && suyas.filter(w => mias.includes(w)).length >= 2) return true;
+  }
+  const zona = normalizar(cuerpo).match(/(?:destinatario|ordenante|originante|destino)[\\s\\S]{0,250}/);
+  if (zona) { const z = zona[0].replace(/\\s+/g, ''); for (const id of MIOS.ids) if (id && z.includes(id)) return true; }
+  return false;
 }
 
 function descripcion(asunto, cuerpo) {
@@ -1661,6 +1719,8 @@ document.addEventListener('change', e => {
       if (t.dataset.cfg==='accAlias') c.accounts[+t.dataset.i].alias = list(t.value);
       else if (t.dataset.cfg==='catName' && cat && t.value.trim()) cat.n = t.value.trim().slice(0,30);
       else if (t.dataset.cfg==='catKw' && cat) cat.k = list(t.value);
+      else if (t.dataset.cfg==='ownNames') c.own = { ...(c.own||{}), names: t.value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,5) };
+      else if (t.dataset.cfg==='ownIds') c.own = { ...(c.own||{}), ids: t.value.split(',').map(x=>norm(x).replace(/\s+/g,'')).filter(Boolean).slice(0,20) };
     });
     toast('Guardado.'); return;
   }
