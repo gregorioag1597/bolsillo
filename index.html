@@ -120,6 +120,7 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 .approve p{margin:0}
 .approve .q{font-weight:600}
 .approve .big-amt{font-family:var(--display);font-size:26px;font-weight:700}
+.diag{font-size:12px}
 .btn.small{padding:6px 10px;font-size:13px}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
 
@@ -934,8 +935,27 @@ function newAccount(name){
 const learnKey = d => norm(d).replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ');
 const headerSig = row => hash((row||[]).map(x=>norm(x)).join('|'));
 function cfgEdit(fn){ const cfg = clone(config()); fn(cfg); saveConfig(cfg); }
+// Diagnóstico de la sesión: ayuda a entender por qué un celular "se olvida" de la cuenta.
+async function runDiag(){
+  if (store.backend !== 'firebase') return;
+  const partes = [];
+  partes.push(isStandalone() ? 'App instalada' : 'Navegador');
+  const u = store.auth && store.auth.currentUser;
+  partes.push(!u ? 'sin sesión' : u.isAnonymous ? 'sesión sin cuenta' : 'sesión con Google');
+  let guardada = 'no se pudo comprobar';
+  try {
+    if (indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      guardada = dbs.some(d => d.name === 'firebaseLocalStorageDb') ? 'guardada en el dispositivo' : 'NO guardada en el dispositivo';
+    }
+  } catch(e) {}
+  partes.push('sesión ' + guardada);
+  state.diag = partes.join(' · ');
+  const el = $('#diag'); if (el) el.textContent = state.diag;
+}
 function renderAjustes(){
   const cfg = config(); if (!cfg) return;
+  setTimeout(runDiag, 0);
   const used = new Set(allItems().map(x=>x.cuenta));
   const missing = PRESET_ACCOUNTS.filter(p=>!ACCOUNTS.includes(p.name));
   const catRows = tipo => CATS.filter(c=>c.t===tipo).map(c=>`<div class="cfg-row">
@@ -943,6 +963,12 @@ function renderAjustes(){
       <input id="ck-${esc(c.id)}" data-cfg="catKw" data-id="${esc(c.id)}" value="${esc(c.k.join(', '))}" placeholder="Palabras clave, separadas por coma" aria-label="Palabras clave de ${esc(c.n)}">
       ${c.id==='otros'||c.id==='otros_in' ? '<span></span>' : `<button type="button" class="btn small danger" data-action="delcat" data-id="${esc(c.id)}">Quitar</button>`}</div>`).join('');
   $('#tab-ajustes').innerHTML = `
+    ${store.backend==='firebase' ? (store.user && !store.user.isAnonymous
+      ? `<h2>Tu cuenta</h2><p class="muted">Sesión iniciada como ${esc(store.user.email||store.user.displayName||'usuario de Google')}. Tus datos se sincronizan en todos tus dispositivos.</p>
+         <div class="btn-row"><button type="button" class="btn" data-action="logout">Cerrar sesión</button></div>`
+      : `<h2>Tu cuenta</h2><p class="muted">Estás usando Bolsillo sin cuenta: tus datos quedan asociados a este navegador. Iniciá sesión con Google para no perderlos y verlos en otros dispositivos.</p>
+         <div class="btn-row"><button type="button" class="btn primary" data-action="login">Iniciar sesión con Google</button></div>`) : ''}
+    ${store.backend==='firebase' ? '<p class="muted diag" id="diag">' + esc(state.diag || 'Revisando la sesión…') + '</p>' : ''}
     <h2>Moneda</h2>
     <p class="muted">Moneda principal: la de tus totales y gráficos.</p>
     <select id="setCur" aria-label="Moneda">${CURRENCIES.map(([c,n])=>`<option value="${c}"${c===CUR?' selected':''}>${esc(n)} (${c})</option>`).join('')}</select>
@@ -966,11 +992,6 @@ function renderAjustes(){
     <div class="inline"><input id="newCat" placeholder="Nueva categoría" maxlength="30" aria-label="Nombre de la categoría nueva">
       <select id="newCatTipo" aria-label="Tipo"><option value="gasto">Gasto</option><option value="ingreso">Ingreso</option></select>
       <button type="button" class="btn" data-action="addcat">Agregar</button></div>
-    ${store.backend==='firebase' ? (store.user && !store.user.isAnonymous
-      ? `<h2>Tu cuenta</h2><p class="muted">Sesión iniciada como ${esc(store.user.email||store.user.displayName||'usuario de Google')}. Tus datos se sincronizan en todos tus dispositivos.</p>
-         <div class="btn-row"><button type="button" class="btn" data-action="logout">Cerrar sesión</button></div>`
-      : `<h2>Tu cuenta</h2><p class="muted">Estás usando Bolsillo sin cuenta: tus datos quedan asociados a este navegador. Iniciá sesión con Google para no perderlos y verlos en otros dispositivos.</p>
-         <div class="btn-row"><button type="button" class="btn primary" data-action="login">Iniciar sesión con Google</button></div>`) : ''}
     ${store.backend==='firebase' ? renderAutoSection() : ''}
     <h2>Tus datos</h2>
     <p class="muted">Descargá todos tus movimientos en CSV para abrirlos en Excel o Google Sheets.</p>
@@ -1928,6 +1949,7 @@ async function initFirebase(){
     db.settings({ ignoreUndefinedProperties: true, merge: true });
     db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
     store.backend = 'firebase'; store.auth = firebase.auth();
+    try { await store.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e) { console.warn('No se pudo fijar la persistencia de la sesión', e); }
     store.auth.onAuthStateChanged(u => {
       if (!u) { store.auth.signInAnonymously().catch(() => { useLocal(); setStatus('No pude conectar con el servidor: los movimientos se guardan solo en este navegador.'); }); return; }
       if (store.uid && store.uid !== u.uid) { location.reload(); return; }
