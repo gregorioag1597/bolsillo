@@ -1568,9 +1568,12 @@ function formatear(n) {
   return partes[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.') + (partes[1] !== '00' ? ',' + partes[1] : '');
 }
 
-// Para probar las notificaciones: elegí esta función y tocá Ejecutar.
+// Para probar: elegí esta función y tocá Ejecutar. Carga un gasto de prueba para aprobar
+// (descartalo después) y te manda la notificación.
 function probarNotificacion() {
-  notificar({ tipo: 'gasto', monto: 1234.5, moneda: 'ARS', desc: 'Prueba de Bolsillo', cuenta: 'Bolsillo' });
+  const mov = { tipo: 'gasto', monto: 1234.5, moneda: 'ARS', desc: 'Prueba de Bolsillo', cuenta: FUENTES[0].cuenta,
+    fecha: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd') };
+  if (enviar('prueba-' + Date.now(), mov)) notificar(mov);
 }
 
 function limpiarViejos(props) {
