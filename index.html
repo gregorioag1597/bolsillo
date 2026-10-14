@@ -113,6 +113,13 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 @media (max-width:420px){.tile{padding:8px}.tile b{font-size:14px}.tile small{font-size:11px}}
 .amt small.eq{display:block;font-size:11px;font-weight:400;color:var(--muted);text-align:right}
 #sumOther{display:block;font-size:13px;margin-top:2px}
+.pendbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:8px 12px;font-size:14px}
+.tray{display:flex;flex-direction:column;gap:10px}
+.tray-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.approve{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.approve p{margin:0}
+.approve .q{font-weight:600}
+.approve .big-amt{font-family:var(--display);font-size:26px;font-weight:700}
 .btn.small{padding:6px 10px;font-size:13px}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
 
@@ -211,6 +218,7 @@ td.d{max-width:200px;overflow:hidden;text-overflow:ellipsis}
   </header>
 
   <div id="status" class="status" hidden></div>
+  <div id="pendBar" class="pendbar" hidden></div>
 
   <section id="setup" class="card panel" hidden></section>
 
@@ -611,6 +619,7 @@ const toMain = it => !isOther(it) ? it.monto : (it.tc ? it.monto * it.tc : 0);
 function monthTotals(items){
   let g=0, i=0; const byCat = {}, byAcc = {}, other = {};
   for (const it of items) {
+    if (it.pend) continue;
     if (it.interno) {
       if (!(isOther(it) && !it.tc)) { const v = toMain(it); byAcc[it.cuenta] = (byAcc[it.cuenta]||0) + (it.tipo==='gasto' ? -v : v); }
       continue;
@@ -637,6 +646,8 @@ function render(){
   $('#setup').hidden = !needSetup; $('#main').hidden = needSetup;
   if (needSetup) { renderSetup(); return; }
   gCheckHash();
+  updateBadge();
+  checkRevisarHash();
   migrateConfig();
   inboxWatch();
   const [y,m] = state.ym.split('-').map(Number);
@@ -714,8 +725,7 @@ function renderMovs(items, t){
   if (accs.length) h += `<div class="chips" role="group" aria-label="Filtrar por cuenta">
     <button type="button" class="chip ${!state.filterAcc?'on':''}" data-action="facc" data-v="">Todas</button>
     ${ACCOUNTS.filter(a=>accs.includes(a)).map(a=>`<button type="button" class="chip num ${state.filterAcc===a?'on':''}" data-action="facc" data-v="${esc(a)}">${esc(a)} <b>${fmt(t.byAcc[a],true)}</b></button>`).join('')}</div>`;
-  const pend = items.filter(x=>x.pend).length;
-  if (pend) h += `<div class="stats">${pend} movimiento${pend>1?'s se anotaron':' se anotó'} solo${pend>1?'s':''}. Tocalos para revisar la categoría, o confirmalos.<div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="confirmall">Confirmar todos</button></div></div>`;
+  h = approvalTray() + h;
   if (state.filterCat) h += `<div class="filter-note">Mostrando solo <b>${esc(CAT[state.filterCat]?.n)}</b><button type="button" class="btn small" data-action="fcat" data-v="">Ver todo</button></div>`;
   if (!list.length) {
     h += items.length ? `<div class="empty"><span>No hay movimientos con ese filtro.</span></div>`
@@ -725,12 +735,12 @@ function renderMovs(items, t){
   const groups = {};
   for (const it of list) (groups[it.fecha] ||= []).push(it);
   for (const [f, arr] of Object.entries(groups)) {
-    const tot = arr.reduce((s,x)=>s + (x.interno ? 0 : x.tipo==='gasto'?-toMain(x):toMain(x)), 0);
+    const tot = arr.reduce((s,x)=>s + (x.interno || x.pend ? 0 : x.tipo==='gasto'?-toMain(x):toMain(x)), 0);
     h += `<div class="day"><h3><span>${esc(dayLabel(f))}</span><span class="num">${fmt(tot,true)}</span></h3>`;
     for (const it of arr) {
       h += `<button type="button" class="row" data-action="edit" data-id="${esc(it.id)}" aria-expanded="${state.editId===it.id}">
         <span class="dot" style="background:${catColor(it.cat)}"></span>
-        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.interno?'<span class="badge">Entre mis cuentas</span>':''}${it.pend?'<span class="badge warn">Revisar</span>':''}</span></span>
+        <span class="main"><span class="t">${esc(it.desc)}</span><span class="s">${esc(CAT[it.cat]?.n||'')} · ${esc(it.cuenta)}${it.conc?'<span class="badge">Conciliado</span>':''}${it.origen==='import'?'<span class="badge">Extracto</span>':''}${it.interno?'<span class="badge">Entre mis cuentas</span>':''}${it.pend?'<span class="badge warn">Para aprobar</span>':''}</span></span>
         <span class="amt num ${it.interno?'n':it.tipo==='gasto'?'g':'i'}">${it.interno?(it.tipo==='gasto'?'⇄ −':'⇄ +'):it.tipo==='gasto'?'−':'+'}${fmt(it.monto,false,it.mon)}${isOther(it)&&it.tc?`<small class="eq">≈ ${fmt(toMain(it))}</small>`:''}</span></button>`;
       if (state.editId===it.id) {
         const buf = state.editBuf || it;
@@ -829,10 +839,10 @@ function renderCats(items, t){
   // Categorías del mes elegido, comparadas con el promedio de los meses anteriores del período.
   const prevMonths = data.slice(0,-1).map(d=>d.ym).filter(ym=>monthItems(ym).length);
   const catAvg = {};
-  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto' && !it.interno) catAvg[it.cat] = (catAvg[it.cat]||0) + toMain(it)/prevMonths.length;
+  for (const ym of prevMonths) for (const it of monthItems(ym)) if (it.tipo==='gasto' && !it.interno && !it.pend) catAvg[it.cat] = (catAvg[it.cat]||0) + toMain(it)/prevMonths.length;
   const block = (tipo, title) => {
     const sums = {}; let tot = 0;
-    for (const it of items) if (it.tipo===tipo && !it.interno) { const v = toMain(it); sums[it.cat] = (sums[it.cat]||0)+v; tot += v; }
+    for (const it of items) if (it.tipo===tipo && !it.interno && !it.pend) { const v = toMain(it); sums[it.cat] = (sums[it.cat]||0)+v; tot += v; }
     const rows = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
     if (!rows.length) return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><p class="filter-note">Sin ${title.toLowerCase()} este mes.</p>`;
     return `<h2>${title} de ${esc(monthShort(state.ym))}</h2><div class="catlist">` + rows.map(([c,v])=>{
@@ -867,6 +877,43 @@ document.addEventListener('click', e => {
   if (b) { state.anaN = +b.dataset.v; render(); }
 });
 let resizeT; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(()=>{ if (state.tab==='cats') render(); }, 200); });
+
+/* ---------- Para aprobar ---------- */
+const pendingItems = () => allItems().filter(x=>x.pend).sort((a,b)=>b.fecha.localeCompare(a.fecha) || (b.ts||0)-(a.ts||0));
+function approvalTray(){
+  const list = pendingItems(); if (!list.length) return '';
+  const shown = list.slice(0, 8);
+  return `<section class="tray" id="tray" aria-label="Para aprobar">
+    <div class="tray-head"><h2>Para aprobar</h2>${list.length>1?`<button type="button" class="btn small" data-action="approveall">Aprobar todos (${list.length})</button>`:''}</div>
+    ${shown.map(it=>`<div class="approve">
+      <p class="q">${it.interno?'¿Aprobás este movimiento entre tus cuentas?':it.tipo==='gasto'?'¿Aprobás este gasto?':'¿Aprobás este ingreso?'}</p>
+      <p class="big-amt num">${fmt(it.monto,false,it.mon)}</p>
+      <p class="muted">${esc(it.desc)} · ${esc(it.cuenta)} · ${esc(dayLabel(it.fecha))} · ${esc(CAT[it.cat]?.n||'')}</p>
+      <div class="btn-row"><button type="button" class="btn primary" data-action="approve" data-id="${esc(it.id)}">Confirmar</button>
+        <button type="button" class="btn" data-action="approveedit" data-id="${esc(it.id)}">Editar</button>
+        <button type="button" class="btn danger" data-action="reject" data-id="${esc(it.id)}">${state.confirmDel==='rej-'+it.id?'Tocá de nuevo para descartar':'Descartar'}</button></div>
+    </div>`).join('')}
+    ${list.length>shown.length?`<p class="muted">Y ${list.length-shown.length} más.</p>`:''}
+  </section>`;
+}
+function updateBadge(){
+  const n = store.mode==='db' || store.mode==='local' ? pendingItems().length : 0;
+  try { if (n) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.(); } catch(e) {}
+  const bar = $('#pendBar'); if (!bar) return;
+  bar.hidden = !n || state.tab==='movs';
+  if (n) bar.innerHTML = `<span>Tenés <b>${n}</b> movimiento${n>1?'s':''} para aprobar.</span><button type="button" class="btn small primary" data-action="gotray">Ver</button>`;
+}
+function openTray(){
+  state.tab = 'movs'; state.filterAcc = null; state.filterCat = null; render();
+  setTimeout(()=>$('#tray')?.scrollIntoView({behavior:'smooth', block:'start'}), 50);
+}
+// La notificación abre la app en "#revisar".
+function checkRevisarHash(){
+  if (location.hash !== '#revisar' || store.mode==='loading' || !config()) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  openTray();
+}
+addEventListener('hashchange', checkRevisarHash);
 
 /* ---------- Configuración ---------- */
 function renderSetup(){
@@ -1246,7 +1293,7 @@ function processInbox(key, list){
     if (seen.has(ref)) continue;
     if (m.text) {
       // Texto dictado por Siri: se interpreta como una frase escrita en la app.
-      parseLocal(String(m.text)).forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'auto', pend: true, ts: Date.now() }));
+      parseLocal(String(m.text)).forEach((it, i) => add.push({ ...it, id: ref + (i ? '-' + i : ''), ext: i ? undefined : ref, origen: 'siri', ts: Date.now() }));
       continue;
     }
     const tipo = /ingreso$/.test(m.tipo||'') ? 'ingreso' : 'gasto', monto = Math.abs(Number(m.amount)) || 0;
@@ -1265,8 +1312,51 @@ function processInbox(key, list){
   }
   if (add.length || upd.length) putItems([...add, ...upd]);
   for (const m of list) store.db.doc(`inbox/${key}/items/${m.id}`).delete().catch(()=>{});
-  if (add.length) toast(add.length===1 ? `Se anotó solo: ${fmt(add[0].monto,false,add[0].mon)} · ${add[0].desc}` : `Se anotaron solos ${add.length} movimientos. Revisalos en Movimientos.`);
+  const pe = add.filter(x=>x.pend);
+  if (pe.length) toast(pe.length===1 ? `Para aprobar: ${fmt(pe[0].monto,false,pe[0].mon)} · ${pe[0].desc}` : `Tenés ${pe.length} movimientos para aprobar.`);
+  else if (add.length) toast(`Anotado: ${fmt(add[0].monto,false,add[0].mon)} · ${add[0].desc}`);
   else if (upd.length) toast('Un aviso coincidió con un gasto que ya habías anotado: quedó conciliado.');
+}
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function renderPushSection(){
+  if (!self.BOLSILLO_VAPID) return '<p class="muted">Notificaciones para aprobar: falta la clave de notificaciones en <code>firebase-config.js</code> (ver README).</p>';
+  const on = typeof Notification !== 'undefined' && Notification.permission === 'granted' && lsGet('bolsillo:push', null);
+  if (on) return '<p class="muted">Notificaciones activadas en este dispositivo: cuando llegue un aviso, te pregunta si lo aprobás.</p>';
+  if (isIOS() && !isStandalone()) return '<p class="muted">Para recibir notificaciones en iPhone, primero agregá Bolsillo a la pantalla de inicio (compartir → Agregar a inicio), abrilo desde ahí e iniciá sesión con Google en Ajustes.</p>';
+  return '<div class="btn-row"><button type="button" class="btn primary" data-action="pushon">Avisarme para aprobar (en este dispositivo)</button></div>';
+}
+async function enablePush(){
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) { toast('Este navegador no permite notificaciones.', true); return; }
+  if (isIOS() && !isStandalone()) { toast('En iPhone, primero agregá Bolsillo a la pantalla de inicio y abrilo desde ahí.', true); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast('No se activaron: hay que permitir las notificaciones.', true); return; }
+  try {
+    await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const token = await firebase.messaging().getToken({ vapidKey: self.BOLSILLO_VAPID, serviceWorkerRegistration: reg });
+    if (!token) throw new Error('sin token');
+    await store.db.doc(`inbox/${config().inboxKey}/devices/${hash(token)}`).set({ token, ts: Date.now(), ua: navigator.userAgent.slice(0, 120) });
+    lsSet('bolsillo:push', hash(token));
+    render(); toast('Listo: te vamos a avisar en este dispositivo.');
+  } catch(e) {
+    console.error(e); toast('No se pudieron activar las notificaciones en este dispositivo.', true);
+  }
+}
+// Permisos que necesita el script de Gmail para leer tus dispositivos y mandarte la notificación.
+function scriptManifest(){
+  let tz = 'America/Argentina/Buenos_Aires'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch(e) {}
+  return JSON.stringify({
+    timeZone: tz, dependencies: {}, exceptionLogging: 'STACKDRIVER', runtimeVersion: 'V8',
+    oauthScopes: [
+      'https://mail.google.com/',
+      'https://www.googleapis.com/auth/script.external_request',
+      'https://www.googleapis.com/auth/script.scriptapp',
+      'https://www.googleapis.com/auth/datastore',
+      'https://www.googleapis.com/auth/firebase.messaging',
+    ],
+  }, null, 2);
 }
 function renderAutoSection(){
   const k = config()?.inboxKey;
@@ -1274,7 +1364,8 @@ function renderAutoSection(){
     <p class="muted">Bolsillo puede leer los avisos de pago que te llegan a Gmail (Mercado Pago y bancos) y anotarlos solos, y recibir gastos que le dictás a Siri sin abrir la app.</p>
     <div class="btn-row"><button type="button" class="btn primary" data-action="inboxon">Activar</button></div>`;
   return `<h2>Anotar automáticamente</h2>
-    <p class="muted">Lo que llegue por estas vías aparece en Movimientos con la marca "Revisar".</p>
+    <p class="muted">Lo que llega de Gmail queda <b>para aprobar</b>: no suma a tus gastos hasta que lo confirmes. Lo que dictás a Siri se anota directo.</p>
+    ${renderPushSection()}
     <details><summary>Avisos de Gmail (Mercado Pago y bancos)</summary>
       <ol class="steps">
         <li>Tocá <b>Copiar código para Gmail</b>.</li>
@@ -1282,8 +1373,9 @@ function renderAutoSection(){
         <li>Borrá lo que hay, pegá el código y guardá (ícono de disquete).</li>
         <li>Arriba, elegí la función <b>instalar</b> y tocá <b>Ejecutar</b>. Google te va a pedir permiso para leer tus mails: aceptalo (si dice "Google no verificó esta app", tocá <i>Configuración avanzada → Ir a Bolsillo</i>; el código es tuyo y corre en tu cuenta).</li>
         <li>Listo: cada 5 minutos revisa los avisos nuevos.</li>
+        <li><b>Para las notificaciones</b> (una sola vez): en script.google.com tocá <b>Configuración del proyecto</b> (engranaje), tildá <b>Mostrar el archivo de manifiesto "appsscript.json" en el editor</b>, volvé al <b>Editor</b>, abrí <b>appsscript.json</b>, reemplazá todo por lo que copia <b>Copiar permisos</b>, guardá y ejecutá <b>instalar</b> de nuevo para aceptar los permisos nuevos. Para probar, ejecutá <b>probarNotificacion</b>.</li>
       </ol>
-      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="copyscript">Copiar código para Gmail</button></div>
+      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small primary" data-action="copyscript">Copiar código para Gmail</button><button type="button" class="btn small" data-action="copymanifest">Copiar permisos</button></div>
     </details>
     <details><summary>Siri en iPhone: "Oye Siri, anotar gasto"</summary>
       <ol class="steps">
@@ -1340,7 +1432,7 @@ function revisarMails() {
       if (props.getProperty(id) || msg.getDate() < new Date(Date.now() - 2 * 864e5)) continue;
       const mov = interpretar(msg);
       if (!mov) { props.setProperty(id, String(Date.now())); continue; }
-      if (enviar(id, mov)) props.setProperty(id, String(Date.now()));
+      if (enviar(id, mov)) { props.setProperty(id, String(Date.now())); try { notificar(mov); } catch (e) { console.log('No se pudo notificar: ' + e); } }
     }
   }
 }
@@ -1418,6 +1510,44 @@ function enviar(id, mov) {
   if (c === 200 || c === 409) return true;
   console.log('No se pudo enviar (' + c + '): ' + r.getContentText().slice(0, 300));
   return false;
+}
+
+// Notificación "¿Aprobás este gasto?" a los dispositivos donde activaste los avisos.
+// Usa tu propia cuenta de Google (la dueña del proyecto de Firebase): ver los permisos de appsscript.json.
+function notificar(mov) {
+  const token = ScriptApp.getOAuthToken();
+  const cabeceras = { Authorization: 'Bearer ' + token, 'X-Goog-User-Project': BOLSILLO.proyecto };
+  const base = 'https://firestore.googleapis.com/v1/projects/' + BOLSILLO.proyecto + '/databases/(default)/documents/inbox/' + BOLSILLO.clave + '/devices';
+  const r = UrlFetchApp.fetch(base + '?pageSize=20', { headers: cabeceras, muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) { console.log('No pude leer los dispositivos (' + r.getResponseCode() + '): ' + r.getContentText().slice(0, 300)); return; }
+  const docs = JSON.parse(r.getContentText()).documents || [];
+  if (!docs.length) { console.log('No hay dispositivos con notificaciones activadas.'); return; }
+  const interno = /^interno-/.test(mov.tipo);
+  const titulo = interno ? '¿Aprobás este movimiento entre tus cuentas?' : /ingreso$/.test(mov.tipo) ? '¿Aprobás este ingreso?' : '¿Aprobás este gasto?';
+  const texto = (mov.moneda === 'USD' ? 'US$ ' : '$ ') + formatear(mov.monto) + ' · ' + mov.desc + ' · ' + mov.cuenta;
+  for (const d of docs) {
+    const tk = d.fields && d.fields.token && d.fields.token.stringValue;
+    if (!tk) continue;
+    const msg = { message: { token: tk, data: { title: titulo, body: texto, tag: 'bolsillo-' + Date.now() }, webpush: { headers: { Urgency: 'high', TTL: '86400' } } } };
+    const s = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + BOLSILLO.proyecto + '/messages:send', {
+      method: 'post', contentType: 'application/json', headers: cabeceras, payload: JSON.stringify(msg), muteHttpExceptions: true });
+    const c = s.getResponseCode();
+    if (c === 404 || /UNREGISTERED/.test(s.getContentText())) {
+      // El dispositivo ya no recibe avisos (se desinstaló o se desactivaron): se borra.
+      UrlFetchApp.fetch('https://firestore.googleapis.com/v1/' + d.name, { method: 'delete', headers: cabeceras, muteHttpExceptions: true });
+    } else if (c !== 200) console.log('No se pudo notificar (' + c + '): ' + s.getContentText().slice(0, 300));
+    else console.log('Notificación enviada.');
+  }
+}
+
+function formatear(n) {
+  const partes = Number(n).toFixed(2).split('.');
+  return partes[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.') + (partes[1] !== '00' ? ',' + partes[1] : '');
+}
+
+// Para probar las notificaciones: elegí esta función y tocá Ejecutar.
+function probarNotificacion() {
+  notificar({ tipo: 'gasto', monto: 1234.5, moneda: 'ARS', desc: 'Prueba de Bolsillo', cuenta: 'Bolsillo' });
 }
 
 function limpiarViejos(props) {
@@ -1695,6 +1825,24 @@ document.addEventListener('click', e => {
   else if (a==='inboxon') { const k = randomKey(24); cfgEdit(c => c.inboxKey = k); render(); }
   else if (a==='inboxreset') { if (state.confirmDel!=='inbox') { state.confirmDel = 'inbox'; render(); return; } state.confirmDel = null; if (store.inboxUnsub) { store.inboxUnsub(); store.inboxUnsub = null; } cfgEdit(c => c.inboxKey = randomKey(24)); render(); toast('Clave nueva generada. Actualizá el script de Gmail y el atajo de Siri.'); }
   else if (a==='copyscript') copyText(gmailScript(), 'Código copiado. Pegalo en Google Apps Script.');
+  else if (a==='approve' || a==='approveall') {
+    const ids = a==='approve' ? [b.dataset.id] : pendingItems().map(x=>x.id);
+    putItems(pendingItems().filter(x=>ids.includes(x.id)).map(x=>{ const y = clone(x); delete y.pend; return y; }));
+    render(); toast(ids.length>1 ? 'Movimientos aprobados.' : 'Aprobado.');
+  }
+  else if (a==='reject') {
+    const it = pendingItems().find(x=>x.id===b.dataset.id); if (!it) return;
+    if (state.confirmDel !== 'rej-'+it.id) { state.confirmDel = 'rej-'+it.id; render(); return; }
+    state.confirmDel = null; removeItem(it.id, it.fecha); render(); toast('Descartado.');
+  }
+  else if (a==='approveedit') {
+    const it = pendingItems().find(x=>x.id===b.dataset.id); if (!it) return;
+    state.ym = it.fecha.slice(0,7); state.editId = it.id; state.editBuf = clone(it); state.filterAcc = null; state.filterCat = null; render();
+    setTimeout(()=>document.querySelector('[data-action="edit"][data-id="'+CSS.escape(it.id)+'"]')?.scrollIntoView({block:'center'}), 50);
+  }
+  else if (a==='gotray') openTray();
+  else if (a==='pushon') enablePush();
+  else if (a==='copymanifest') copyText(scriptManifest(), 'Permisos copiados. Pegalos en appsscript.json.');
   else if (a==='copykey') copyText(inboxURL(), 'Dirección copiada. Pegala en el atajo de Siri.');
   else if (a==='mic') listen('#frase', anotar);
   else if (a==='login') login();

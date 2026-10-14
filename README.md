@@ -34,7 +34,7 @@ Sin Firebase configurado, Bolsillo funciona igual pero guarda todo solo en el na
 6. Pegalo en [`firebase-config.js`](firebase-config.js):
 
 ```js
-window.BOLSILLO_FIREBASE = {
+self.BOLSILLO_FIREBASE = {
   apiKey: "AIza...",
   authDomain: "tu-proyecto.firebaseapp.com",
   projectId: "tu-proyecto",
@@ -50,6 +50,17 @@ Estos valores no son secretos (viajan a todos los navegadores); lo que protege l
 2. En el repositorio: **Settings → Pages → Deploy from a branch**, rama `main`, carpeta `/ (root)`.
 3. En unos minutos queda en `https://<tu-usuario>.github.io/<repositorio>/`.
 4. En Firebase, **Authentication → Configuración → Dominios autorizados**, agregá `<tu-usuario>.github.io` (para que funcione el inicio de sesión con Google).
+
+### 3. Anotar automático y notificaciones (opcional)
+
+En la app, **Ajustes → Anotar automáticamente → Activar** muestra los pasos para:
+
+- **Avisos de Gmail**: un script de Google Apps Script que corre en tu cuenta, lee cada 5 minutos los avisos de pago de Mercado Pago y tus bancos, y los deja en Bolsillo **para aprobar** (no suman hasta que los confirmás).
+- **Siri** (iPhone): un atajo que manda lo que dictás directo a Bolsillo.
+- **Notificaciones para aprobar**: cuando llega un aviso, te llega una notificación "¿Aprobás este gasto?". Para activarlas:
+  1. En Firebase: **Configuración del proyecto → Cloud Messaging → Certificados push web → Generar par de claves**, y pegá la clave en `self.BOLSILLO_VAPID` de [`firebase-config.js`](firebase-config.js).
+  2. En el script de Apps Script, reemplazá `appsscript.json` por los permisos que copia el botón **Copiar permisos** (el script manda la notificación con tu cuenta de Google, que tiene que ser la dueña del proyecto de Firebase).
+  3. En el celular, tocá **Avisarme para aprobar**. En iPhone hace falta iOS 16.4 o más nuevo y abrir Bolsillo desde el ícono de la pantalla de inicio.
 
 ## Adaptarla
 

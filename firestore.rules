@@ -27,6 +27,16 @@ service cloud.firestore {
       allow read, delete: if request.auth != null;
     }
 
+    // Dispositivos donde activaste las notificaciones para aprobar gastos.
+    // El script de Gmail los lee con tu cuenta de Google (dueña del proyecto).
+    match /inbox/{key}/devices/{id} {
+      allow create, update: if request.auth != null && key.size() >= 20
+        && request.resource.data.keys().hasOnly(['token', 'ts', 'ua'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() < 500;
+      allow read, delete: if request.auth != null;
+    }
+
     // Grupos: cualquiera que tenga el código (el link) puede verlo y anotar.
     // Nadie puede listar todos los grupos, así que sin el código no se encuentran.
     match /groups/{gid} {
